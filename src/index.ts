@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createDatabase } from "./db/connection.js";
+import { registerCreateEntryTool } from "./tools/createEntry.js";
 
 const DB_PATH = process.env.ORIUM_DB_PATH ?? "orium.db";
 
@@ -10,6 +11,8 @@ const server = new McpServer({
   name: "orium-mcp",
   version: "0.1.0",
 });
+
+registerCreateEntryTool(server, db);
 
 process.on("exit", () => db.close());
 
