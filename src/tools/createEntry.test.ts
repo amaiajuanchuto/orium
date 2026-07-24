@@ -105,4 +105,21 @@ describe("create_entry tool", () => {
 
     expect(result.isError).toBe(true);
   });
+
+  it("rejects a date in the future", async () => {
+    const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+    const result = await client.callTool({
+      name: "create_entry",
+      arguments: {
+        date: futureDate,
+        mood_rating: 5,
+        energy_level: 5,
+      },
+    });
+
+    expect(result.isError).toBe(true);
+  });
 });

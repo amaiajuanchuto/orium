@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createDatabase } from "./db/connection.js";
 import { registerCreateEntryTool } from "./tools/createEntry.js";
 import { registerListEntriesTool } from "./tools/listEntries.js";
+import { registerUpdateEntryTool } from "./tools/updateEntry.js";
 
 const DB_PATH = process.env.ORIUM_DB_PATH ?? "orium.db";
 
@@ -15,6 +16,7 @@ const server = new McpServer({
 
 registerCreateEntryTool(server, db);
 registerListEntriesTool(server, db);
+registerUpdateEntryTool(server, db);
 
 process.on("exit", () => db.close());
 
