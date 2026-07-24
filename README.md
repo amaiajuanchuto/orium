@@ -1,4 +1,4 @@
-# Orium
+# Orium 🥝
 
 Orium is an MCP (Model Context Protocol) server for mental health journaling. It lets
 you track mood, energy, sleep, and thoughts through Claude, backed by a local SQLite
@@ -53,3 +53,8 @@ src/
     connection.test.ts
   index.ts          # MCP server entry point
 ```
+
+## Author 👩‍💻
+
+Made with ❤️ by Amaia Juanchuto — Full-stack Software Engineer
+[LinkedIn](https://linkedin.com/in/amaiajuanchuto) | [GitHub](https://github.com/amaiajuanchuto)
