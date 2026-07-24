@@ -5,6 +5,7 @@ import { registerCreateEntryTool } from "./tools/createEntry.js";
 import { registerDeleteEntryTool } from "./tools/deleteEntry.js";
 import { registerGetTodayTool } from "./tools/getToday.js";
 import { registerListEntriesTool } from "./tools/listEntries.js";
+import { registerSearchEntriesTool } from "./tools/searchEntries.js";
 import { registerUpdateEntryTool } from "./tools/updateEntry.js";
 
 const DB_PATH = process.env.ORIUM_DB_PATH ?? "orium.db";
@@ -20,6 +21,7 @@ registerCreateEntryTool(server, db);
 registerDeleteEntryTool(server, db);
 registerGetTodayTool(server, db);
 registerListEntriesTool(server, db);
+registerSearchEntriesTool(server, db);
 registerUpdateEntryTool(server, db);
 
 process.on("exit", () => db.close());
