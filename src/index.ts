@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createDatabase } from "./db/connection.js";
 import { registerCreateEntryTool } from "./tools/createEntry.js";
+import { registerDeleteEntryTool } from "./tools/deleteEntry.js";
 import { registerListEntriesTool } from "./tools/listEntries.js";
 import { registerUpdateEntryTool } from "./tools/updateEntry.js";
 
@@ -15,6 +16,7 @@ const server = new McpServer({
 });
 
 registerCreateEntryTool(server, db);
+registerDeleteEntryTool(server, db);
 registerListEntriesTool(server, db);
 registerUpdateEntryTool(server, db);
 
