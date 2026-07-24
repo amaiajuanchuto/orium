@@ -2,10 +2,10 @@ import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { upsertTag } from "../db/tags.js";
-import type { Entry } from "../db/types.js";
+import { DATE_REGEX, type Entry } from "../db/types.js";
 
 const createEntryInputSchema = {
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date must be in YYYY-MM-DD format"),
+  date: z.string().regex(DATE_REGEX, "date must be in YYYY-MM-DD format"),
   mood_rating: z.number().int().min(1).max(10),
   energy_level: z.number().int().min(1).max(10),
   sleep_hours: z.number().min(0).max(24).optional(),
