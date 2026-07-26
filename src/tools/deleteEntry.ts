@@ -1,3 +1,6 @@
+/**
+ * `delete_entry` MCP tool: removes a journal entry (and its tag links) by id.
+ */
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

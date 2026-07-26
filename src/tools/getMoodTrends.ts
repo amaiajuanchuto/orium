@@ -1,3 +1,7 @@
+/**
+ * `get_mood_trends` MCP tool: compares recent averages against the prior
+ * equivalent period.
+ */
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -22,6 +26,14 @@ interface PeriodAverages {
 
 type Direction = "up" | "down" | "stable";
 
+/**
+ * Averages mood, energy, and sleep over an inclusive date range.
+ *
+ * @param db - Open database connection.
+ * @param start - Range start date (YYYY-MM-DD), inclusive.
+ * @param end - Range end date (YYYY-MM-DD), inclusive.
+ * @returns Rounded averages and the number of entries the range covered.
+ */
 function getPeriodAverages(
   db: Database.Database,
   start: string,
@@ -51,6 +63,14 @@ function getPeriodAverages(
   };
 }
 
+/**
+ * Classifies the change from `previous` to `current` as up/down/stable,
+ * using a ±0.5 dead zone so small noise doesn't register as a trend.
+ *
+ * @param current - Current period's average, or null if no data.
+ * @param previous - Prior period's average, or null if no data.
+ * @returns "stable" whenever either value is null.
+ */
 function getDirection(current: number | null, previous: number | null): Direction {
   if (current === null || previous === null) {
     return "stable";

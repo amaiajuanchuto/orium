@@ -1,3 +1,7 @@
+/**
+ * `get_streak` MCP tool: reports the current/longest logging streaks and
+ * progress toward the next milestone.
+ */
 import type Database from "better-sqlite3";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { addDays, toISODate } from "../db/dates.js";
@@ -6,6 +10,13 @@ import { computeCurrentStreak } from "../db/streak.js";
 const MILESTONES = [7, 14, 30, 90, 180, 365];
 const NUDGE_THRESHOLD_DAYS = 3;
 
+/**
+ * Finds the longest run of consecutive calendar days in a set of logged
+ * dates, regardless of whether that run is still active.
+ *
+ * @param datesDesc - Distinct logged dates (YYYY-MM-DD), any order.
+ * @returns Length of the longest consecutive-day run; 0 if empty.
+ */
 function computeLongestStreak(datesDesc: string[]): number {
   const datesAsc = [...datesDesc].sort();
   let longest = 0;

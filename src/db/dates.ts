@@ -1,3 +1,8 @@
+/**
+ * Shared date and rounding helpers used across the tools (period math,
+ * streak calculations, and formatting averages).
+ */
+
 export function toISODate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }

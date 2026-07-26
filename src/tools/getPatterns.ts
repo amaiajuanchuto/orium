@@ -1,3 +1,7 @@
+/**
+ * `get_patterns` MCP tool: finds the strongest mood correlations across
+ * sleep buckets, day of week, and tags.
+ */
 import type Database from "better-sqlite3";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
@@ -31,6 +35,14 @@ function round(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+/**
+ * Compares average mood across sleep-duration buckets (<6h, 6–7h, 7–8h,
+ * 8h+) and reports the best vs. worst bucket, if each has at least
+ * `MIN_SAMPLE_SIZE` entries.
+ *
+ * @param db - Open database connection.
+ * @returns The sleep pattern, or null if fewer than two buckets qualify.
+ */
 function getSleepPattern(db: Database.Database): Pattern | null {
   const rows = db
     .prepare(
@@ -71,6 +83,13 @@ function getSleepPattern(db: Database.Database): Pattern | null {
   };
 }
 
+/**
+ * Compares average mood across days of the week and reports the best vs.
+ * worst day, if each has at least `MIN_SAMPLE_SIZE` entries.
+ *
+ * @param db - Open database connection.
+ * @returns The day-of-week pattern, or null if fewer than two days qualify.
+ */
 function getDayOfWeekPattern(db: Database.Database): Pattern | null {
   const rows = db
     .prepare(
@@ -103,6 +122,13 @@ function getDayOfWeekPattern(db: Database.Database): Pattern | null {
   };
 }
 
+/**
+ * Compares each tag's average mood against the overall average mood, for
+ * every tag with at least `MIN_SAMPLE_SIZE` tagged entries.
+ *
+ * @param db - Open database connection.
+ * @returns One pattern per qualifying tag; empty if there are no entries yet.
+ */
 function getTagPatterns(db: Database.Database): Pattern[] {
   const overall = db
     .prepare("SELECT AVG(mood_rating) AS avg_mood FROM entries")

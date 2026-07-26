@@ -1,3 +1,6 @@
+/**
+ * `search_entries` MCP tool: keyword search across entry notes.
+ */
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -9,6 +12,14 @@ const searchEntriesInputSchema = {
 
 const MAX_RESULTS = 50;
 
+/**
+ * Escapes SQLite `LIKE` wildcard characters (`%`, `_`, `\`) in `value` so it
+ * can be safely embedded in a `LIKE ... ESCAPE '\'` pattern as a literal
+ * substring match.
+ *
+ * @param value - Raw user-provided search keyword.
+ * @returns `value` with wildcard characters backslash-escaped.
+ */
 function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }

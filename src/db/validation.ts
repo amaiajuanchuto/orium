@@ -1,3 +1,6 @@
+/**
+ * Shared zod schemas reused across multiple tool input schemas.
+ */
 import { z } from "zod";
 import { DATE_REGEX } from "./types.js";
 

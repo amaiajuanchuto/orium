@@ -1,3 +1,6 @@
+/**
+ * `update_entry` MCP tool: partially updates an existing journal entry.
+ */
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -15,6 +18,13 @@ const updateEntryInputSchema = {
   tags: z.array(z.string().min(1)).optional(),
 };
 
+/**
+ * Fetches an entry by id along with its linked tag names.
+ *
+ * @param db - Open database connection.
+ * @param id - Id of the entry to fetch. Assumed to exist.
+ * @returns The entry row with a `tags` array of tag names.
+ */
 function getEntryWithTags(db: Database.Database, id: number): EntryWithTags {
   const entry = db.prepare("SELECT * FROM entries WHERE id = ?").get(id) as Entry;
   const tags = db

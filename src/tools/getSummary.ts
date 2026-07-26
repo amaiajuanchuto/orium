@@ -1,3 +1,7 @@
+/**
+ * `get_summary` MCP tool: Orium's comprehensive week/month review,
+ * combining averages, trend, best/worst days, tags, and streak.
+ */
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -37,6 +41,14 @@ interface TagImpact {
   difference: number;
 }
 
+/**
+ * Averages mood, energy, and sleep over an inclusive date range.
+ *
+ * @param db - Open database connection.
+ * @param start - Range start date (YYYY-MM-DD), inclusive.
+ * @param end - Range end date (YYYY-MM-DD), inclusive.
+ * @returns Rounded averages and the number of entries the range covered.
+ */
 function getAverages(db: Database.Database, start: string, end: string): Averages {
   const row = db
     .prepare(
@@ -62,6 +74,14 @@ function getAverages(db: Database.Database, start: string, end: string): Average
   };
 }
 
+/**
+ * Classifies the change from `previous` to `current` as up/down/stable,
+ * using a ±0.5 dead zone so small noise doesn't register as a trend.
+ *
+ * @param current - Current period's average mood.
+ * @param previous - Prior period's average mood, or null if no data.
+ * @returns "stable" whenever `previous` is null.
+ */
 function getDirection(current: number, previous: number | null): Direction {
   if (previous === null) return "stable";
   const delta = current - previous;
@@ -70,6 +90,14 @@ function getDirection(current: number, previous: number | null): Direction {
   return "stable";
 }
 
+/**
+ * Finds the single highest-mood entry within an inclusive date range.
+ *
+ * @param db - Open database connection.
+ * @param start - Range start date (YYYY-MM-DD), inclusive.
+ * @param end - Range end date (YYYY-MM-DD), inclusive.
+ * @returns The date and mood rating of the best-rated entry.
+ */
 function getBestDay(db: Database.Database, start: string, end: string): DayEntry {
   return db
     .prepare(
@@ -81,6 +109,14 @@ function getBestDay(db: Database.Database, start: string, end: string): DayEntry
     .get(start, end) as DayEntry;
 }
 
+/**
+ * Finds the single lowest-mood entry within an inclusive date range.
+ *
+ * @param db - Open database connection.
+ * @param start - Range start date (YYYY-MM-DD), inclusive.
+ * @param end - Range end date (YYYY-MM-DD), inclusive.
+ * @returns The date and mood rating of the worst-rated entry.
+ */
 function getWorstDay(db: Database.Database, start: string, end: string): DayEntry {
   return db
     .prepare(
@@ -92,6 +128,14 @@ function getWorstDay(db: Database.Database, start: string, end: string): DayEntr
     .get(start, end) as DayEntry;
 }
 
+/**
+ * Finds the 5 most-used tags within an inclusive date range.
+ *
+ * @param db - Open database connection.
+ * @param start - Range start date (YYYY-MM-DD), inclusive.
+ * @param end - Range end date (YYYY-MM-DD), inclusive.
+ * @returns Up to 5 tags with their usage counts, most-used first.
+ */
 function getTopTags(db: Database.Database, start: string, end: string): TagCount[] {
   return db
     .prepare(
@@ -107,6 +151,17 @@ function getTopTags(db: Database.Database, start: string, end: string): TagCount
     .all(start, end) as TagCount[];
 }
 
+/**
+ * Finds the tags with the most positive and most negative effect on mood
+ * within an inclusive date range, each measured as the tag's average mood
+ * minus the period's overall average mood.
+ *
+ * @param db - Open database connection.
+ * @param start - Range start date (YYYY-MM-DD), inclusive.
+ * @param end - Range end date (YYYY-MM-DD), inclusive.
+ * @param overallMood - The period's overall average mood, for comparison.
+ * @returns The most positive/negative tag impacts, or null if no tags used.
+ */
 function getTagImpact(
   db: Database.Database,
   start: string,

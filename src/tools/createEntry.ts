@@ -1,3 +1,6 @@
+/**
+ * `create_entry` MCP tool: inserts a new journal entry and its tags.
+ */
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

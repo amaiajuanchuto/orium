@@ -1,3 +1,7 @@
+/**
+ * SQL schema for Orium's SQLite database — the source of truth for the
+ * entries/tags/entry_tags tables, applied on every connection.
+ */
 export const SCHEMA_SQL = `
 PRAGMA foreign_keys = ON;
 

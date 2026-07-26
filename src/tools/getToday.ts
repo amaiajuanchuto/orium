@@ -1,3 +1,6 @@
+/**
+ * `get_today` MCP tool: looks up whether today's journal entry exists.
+ */
 import type Database from "better-sqlite3";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Entry, EntryWithTags } from "../db/types.js";

@@ -1,3 +1,6 @@
+/**
+ * `list_entries` MCP tool: queries journal entries with optional filters.
+ */
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

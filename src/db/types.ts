@@ -1,3 +1,7 @@
+/**
+ * Shared types and date-format constant for a journal entry row and its
+ * tag-annotated variant.
+ */
 export const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface Entry {

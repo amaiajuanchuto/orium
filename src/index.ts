@@ -1,3 +1,7 @@
+/**
+ * Orium MCP server entry point. Opens the SQLite database, registers every
+ * journaling tool, and serves them over stdio to the connecting MCP client.
+ */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createDatabase } from "./db/connection.js";
