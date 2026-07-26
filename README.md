@@ -137,7 +137,7 @@ Three tables, defined in [`src/db/schema.ts`](src/db/schema.ts):
 ## Scripts
 
 | Command                | Description                              |
-| ---------------------- | -----------------------------------------|
+| ---------------------- | ---------------------------------------- |
 | `npm run dev`          | Run the server directly with `tsx`       |
 | `npm run build`        | Compile TypeScript to `dist/`            |
 | `npm start`            | Run the compiled server from `dist/`     |
