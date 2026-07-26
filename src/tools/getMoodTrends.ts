@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { addDays, round, toISODate } from "../db/dates.js";
 
 const PERIOD_DAYS = {
   week: 7,
@@ -20,20 +21,6 @@ interface PeriodAverages {
 }
 
 type Direction = "up" | "down" | "stable";
-
-function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function addDays(isoDate: string, days: number): string {
-  const date = new Date(`${isoDate}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return toISODate(date);
-}
-
-function round(value: number | null): number | null {
-  return value === null ? null : Math.round(value * 10) / 10;
-}
 
 function getPeriodAverages(
   db: Database.Database,

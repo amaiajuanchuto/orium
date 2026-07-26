@@ -1,18 +1,10 @@
 import type Database from "better-sqlite3";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { addDays, toISODate } from "../db/dates.js";
+import { computeCurrentStreak } from "../db/streak.js";
 
 const MILESTONES = [7, 14, 30, 90, 180, 365];
 const NUDGE_THRESHOLD_DAYS = 3;
-
-function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function addDays(isoDate: string, days: number): string {
-  const date = new Date(`${isoDate}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return toISODate(date);
-}
 
 function computeLongestStreak(datesDesc: string[]): number {
   const datesAsc = [...datesDesc].sort();
@@ -27,26 +19,6 @@ function computeLongestStreak(datesDesc: string[]): number {
   }
 
   return longest;
-}
-
-function computeCurrentStreak(
-  dateSet: Set<string>,
-  today: string,
-): { streak: number; loggedToday: boolean } {
-  const loggedToday = dateSet.has(today);
-  let cursor = loggedToday ? today : addDays(today, -1);
-
-  if (!dateSet.has(cursor)) {
-    return { streak: 0, loggedToday };
-  }
-
-  let streak = 0;
-  while (dateSet.has(cursor)) {
-    streak++;
-    cursor = addDays(cursor, -1);
-  }
-
-  return { streak, loggedToday };
 }
 
 function buildMessage(
