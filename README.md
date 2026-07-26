@@ -43,18 +43,42 @@ Three tables, defined in [`src/db/schema.ts`](src/db/schema.ts):
 - **tags** — reusable tag names
 - **entry_tags** — many-to-many join between entries and tags, with cascading deletes
 
+## Tools
+
+| Tool              | Description                                                                      |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `create_entry`    | Create a new journal entry (mood, energy, sleep, notes, tags)                    |
+| `list_entries`    | List entries, filterable by date range, mood/energy range, or tag                |
+| `update_entry`    | Partially update an entry by id; replaces tags if provided                       |
+| `delete_entry`    | Delete an entry by id (destructive)                                              |
+| `get_today`       | Look up today's entry, if one exists                                             |
+| `search_entries`  | Case-insensitive keyword search across entry notes                               |
+| `get_mood_trends` | Compare average mood/energy/sleep over a week/month/quarter vs. the prior period |
+
 ## Project structure
 
 ```
 src/
   db/
-    schema.ts       # table definitions (source of truth)
-    connection.ts   # opens the SQLite DB and applies the schema
+    schema.ts        # table definitions (source of truth)
+    connection.ts     # opens the SQLite DB and applies the schema
     connection.test.ts
-  index.ts          # MCP server entry point
+    types.ts          # shared Entry / EntryWithTags types
+    validation.ts      # shared zod schemas (e.g. dateSchema)
+    tags.ts            # tag upsert helper
+  tools/
+    createEntry.ts
+    listEntries.ts
+    updateEntry.ts
+    deleteEntry.ts
+    getToday.ts
+    searchEntries.ts
+    getMoodTrends.ts
+    *.test.ts          # one test file per tool
+  index.ts             # MCP server entry point; registers all tools
 ```
 
 ## Author 👩‍💻
 
 Made with ❤️ by Amaia Juanchuto — Full-stack Software Engineer
-[LinkedIn](https://linkedin.com/in/amaiajuanchuto) | [GitHub](https://github.com/amaiajuanchuto)
+[LinkedIn](https://www.linkedin.com/in/ajuanchuto/) | [GitHub](https://github.com/amaiajuanchuto)
