@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createDatabase } from "./db/connection.js";
 import { registerCreateEntryTool } from "./tools/createEntry.js";
 import { registerDeleteEntryTool } from "./tools/deleteEntry.js";
+import { registerGetMoodTrendsTool } from "./tools/getMoodTrends.js";
 import { registerGetTodayTool } from "./tools/getToday.js";
 import { registerListEntriesTool } from "./tools/listEntries.js";
 import { registerSearchEntriesTool } from "./tools/searchEntries.js";
@@ -19,6 +20,7 @@ const server = new McpServer({
 
 registerCreateEntryTool(server, db);
 registerDeleteEntryTool(server, db);
+registerGetMoodTrendsTool(server, db);
 registerGetTodayTool(server, db);
 registerListEntriesTool(server, db);
 registerSearchEntriesTool(server, db);
