@@ -45,15 +45,18 @@ Three tables, defined in [`src/db/schema.ts`](src/db/schema.ts):
 
 ## Tools
 
-| Tool              | Description                                                                      |
-| ----------------- | -------------------------------------------------------------------------------- |
-| `create_entry`    | Create a new journal entry (mood, energy, sleep, notes, tags)                    |
-| `list_entries`    | List entries, filterable by date range, mood/energy range, or tag                |
-| `update_entry`    | Partially update an entry by id; replaces tags if provided                       |
-| `delete_entry`    | Delete an entry by id (destructive)                                              |
-| `get_today`       | Look up today's entry, if one exists                                             |
-| `search_entries`  | Case-insensitive keyword search across entry notes                               |
-| `get_mood_trends` | Compare average mood/energy/sleep over a week/month/quarter vs. the prior period |
+| Tool              | Description                                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `create_entry`    | Create a new journal entry (mood, energy, sleep, notes, tags)                                                               |
+| `list_entries`    | List entries, filterable by date range, mood/energy range, or tag                                                           |
+| `update_entry`    | Partially update an entry by id; replaces tags if provided                                                                  |
+| `delete_entry`    | Delete an entry by id (destructive)                                                                                         |
+| `get_today`       | Look up today's entry, if one exists                                                                                        |
+| `search_entries`  | Case-insensitive keyword search across entry notes                                                                          |
+| `get_mood_trends` | Compare average mood/energy/sleep over a week/month/quarter vs. the prior period                                            |
+| `get_patterns`    | Find the strongest correlations between mood and sleep, day of week, or tags                                                |
+| `get_streak`      | Report the current/longest daily-logging streak and progress to the next milestone                                          |
+| `get_summary`     | Comprehensive week/month review: averages, trend, best/worst days, top tags, tag impact, streak, and a personalized message |
 
 ## Project structure
 
@@ -66,6 +69,8 @@ src/
     types.ts          # shared Entry / EntryWithTags types
     validation.ts      # shared zod schemas (e.g. dateSchema)
     tags.ts            # tag upsert helper
+    dates.ts            # shared date helpers (toISODate, addDays, round)
+    streak.ts           # shared streak calculation
   tools/
     createEntry.ts
     listEntries.ts
@@ -74,6 +79,9 @@ src/
     getToday.ts
     searchEntries.ts
     getMoodTrends.ts
+    getPatterns.ts
+    getStreak.ts
+    getSummary.ts
     *.test.ts          # one test file per tool
   index.ts             # MCP server entry point; registers all tools
 ```
