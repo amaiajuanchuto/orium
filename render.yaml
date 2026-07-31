@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: orium-mcp
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: ORIUM_MCP_TOKEN
+        sync: false
+      - key: NODE_VERSION
+        value: 20
