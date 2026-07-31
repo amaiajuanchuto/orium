@@ -4,10 +4,18 @@
  * shared bearer token.
  */
 import { randomUUID, timingSafeEqual } from "node:crypto";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import {
+  getOAuthProtectedResourceMetadataUrl,
+  mcpAuthMetadataRouter,
+} from "@modelcontextprotocol/sdk/server/auth/router.js";
+import type { OAuthMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createDatabase } from "./db/connection.js";
 import { registerAllTools } from "./registerTools.js";
 
@@ -21,12 +29,46 @@ if (!ORIUM_MCP_TOKEN) {
   throw new Error("ORIUM_MCP_TOKEN environment variable is required");
 }
 
+const SUPABASE_URL = process.env.SUPABASE_URL;
+if (!SUPABASE_URL) {
+  throw new Error("SUPABASE_URL environment variable is required");
+}
+
+const PUBLIC_URL = process.env.PUBLIC_URL;
+if (!PUBLIC_URL) {
+  throw new Error("PUBLIC_URL environment variable is required");
+}
+
 const PORT = Number(process.env.PORT ?? 3000);
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = path.join(__dirname, "..", "public");
 
 const sql = createDatabase(DATABASE_URL);
 
 /** Active Streamable HTTP sessions, keyed by their MCP session id. */
 const transports: Record<string, StreamableHTTPServerTransport> = {};
+
+// We're a resource server only — Supabase's OAuth 2.1 Server is the actual
+// authorization server. Rather than hand-typing its endpoints (and risking
+// drift from what this beta feature actually serves), fetch its published
+// metadata once at startup and re-advertise it via the MCP SDK's standard
+// protected-resource metadata router, so clients can discover it automatically.
+const RESOURCE_SERVER_URL = new URL("/mcp", PUBLIC_URL);
+const resourceMetadataUrl = getOAuthProtectedResourceMetadataUrl(RESOURCE_SERVER_URL);
+
+async function fetchSupabaseOAuthMetadata(): Promise<OAuthMetadata> {
+  const discoveryUrl = `${SUPABASE_URL}/.well-known/oauth-authorization-server/auth/v1`;
+  const response = await fetch(discoveryUrl);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch Supabase OAuth metadata from ${discoveryUrl}: ${response.status}`,
+    );
+  }
+  return (await response.json()) as OAuthMetadata;
+}
+
+const oauthMetadata = await fetchSupabaseOAuthMetadata();
 
 /**
  * Constant-time comparison of two strings, safe for comparing bearer
@@ -40,23 +82,60 @@ function safeCompare(a: string, b: string): boolean {
   return timingSafeEqual(aBuf, bBuf);
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const header = req.headers.authorization;
-  const expected = `Bearer ${ORIUM_MCP_TOKEN}`;
+// Verifies access tokens issued by Supabase's OAuth 2.1 Server against its
+// published JWKS. `createRemoteJWKSet` fetches and caches the signing keys
+// automatically, refetching if a token references an unrecognized key id.
+const supabaseJwks = createRemoteJWKSet(
+  new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`),
+);
+const SUPABASE_ISSUER = `${SUPABASE_URL}/auth/v1`;
 
-  if (!header || !safeCompare(header, expected)) {
-    res.status(401).json({
-      jsonrpc: "2.0",
-      error: { code: -32001, message: "Unauthorized" },
-      id: null,
+async function isValidSupabaseToken(token: string): Promise<boolean> {
+  try {
+    await jwtVerify(token, supabaseJwks, {
+      issuer: SUPABASE_ISSUER,
+      audience: "authenticated",
     });
-    return;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Accepts either the legacy shared bearer token or a valid Supabase OAuth
+// access token, so existing Claude Code connections keep working while
+// claude.ai (and anything else that needs real OAuth) uses Supabase login.
+async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const header = req.headers.authorization;
+
+  if (header?.startsWith("Bearer ")) {
+    const token = header.slice("Bearer ".length);
+
+    if (safeCompare(header, `Bearer ${ORIUM_MCP_TOKEN}`) || (await isValidSupabaseToken(token))) {
+      next();
+      return;
+    }
   }
 
-  next();
+  res.set(
+    "WWW-Authenticate",
+    `Bearer resource_metadata="${resourceMetadataUrl}"`,
+  );
+  res.status(401).json({
+    jsonrpc: "2.0",
+    error: { code: -32001, message: "Unauthorized" },
+    id: null,
+  });
 }
 
 const app = express();
+app.use(
+  mcpAuthMetadataRouter({
+    oauthMetadata,
+    resourceServerUrl: RESOURCE_SERVER_URL,
+    resourceName: "Orium",
+  }),
+);
 app.use("/mcp", requireAuth);
 
 app.post("/mcp", express.json(), async (req, res) => {
@@ -111,6 +190,17 @@ app.delete("/mcp", handleSessionRequest);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
+});
+
+// Login and OAuth consent pages for the Supabase OAuth Server flow — these
+// are the human-facing pages Supabase redirects to, since it doesn't host
+// its own consent UI. Unauthenticated by design: they *are* the auth step.
+app.get("/login", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "login.html"));
+});
+
+app.get("/oauth/consent", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "oauth-consent.html"));
 });
 
 const httpServer = app.listen(PORT, () => {

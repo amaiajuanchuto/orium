@@ -11,5 +11,9 @@ services:
         sync: false
       - key: ORIUM_MCP_TOKEN
         sync: false
+      - key: SUPABASE_URL
+        value: https://imxmcavkzpbbqbhcefkj.supabase.co
+      - key: PUBLIC_URL
+        value: https://orium-mcp.onrender.com
       - key: NODE_VERSION
         value: 20
