@@ -118,19 +118,27 @@
           return;
         }
 
-        let details;
-        try {
-          details = await supabaseClient.auth.oauth.getAuthorizationDetails(authorizationId);
-        } catch (error) {
+        const { data, error } = await supabaseClient.auth.oauth.getAuthorizationDetails(
+          authorizationId,
+        );
+
+        if (error) {
           showError(`Could not load authorization details: ${error.message}`);
           return;
         }
 
+        // Already consented previously — Supabase returns a redirect instead
+        // of authorization details in that case.
+        if ("redirect_url" in data) {
+          window.location.href = data.redirect_url;
+          return;
+        }
+
         document.getElementById("clientName").textContent =
-          details.client_name || "An application";
+          data.client?.name || "An application";
 
         const scopesList = document.getElementById("scopesList");
-        const scopes = details.scopes || [];
+        const scopes = data.scope ? data.scope.split(" ").filter(Boolean) : [];
         if (scopes.length === 0) {
           const li = document.createElement("li");
           li.textContent = "Full access to your journal entries";
@@ -148,21 +156,27 @@
       }
 
       document.getElementById("approveButton").addEventListener("click", async () => {
-        try {
-          const result = await supabaseClient.auth.oauth.approveAuthorization(authorizationId);
-          window.location.href = result.redirect_url;
-        } catch (error) {
+        const { data, error } = await supabaseClient.auth.oauth.approveAuthorization(
+          authorizationId,
+          { skipBrowserRedirect: true },
+        );
+        if (error) {
           showError(`Approval failed: ${error.message}`);
+          return;
         }
+        window.location.href = data.redirect_url;
       });
 
       document.getElementById("denyButton").addEventListener("click", async () => {
-        try {
-          const result = await supabaseClient.auth.oauth.denyAuthorization(authorizationId);
-          window.location.href = result.redirect_url;
-        } catch (error) {
+        const { data, error } = await supabaseClient.auth.oauth.denyAuthorization(
+          authorizationId,
+          { skipBrowserRedirect: true },
+        );
+        if (error) {
           showError(`Denial failed: ${error.message}`);
+          return;
         }
+        window.location.href = data.redirect_url;
       });
 
       init();
