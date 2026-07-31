@@ -37,7 +37,7 @@ This produces a runnable server at `dist/index.js`.
 
 1. Create a Supabase project (or use any Postgres instance).
 2. Apply the schema in [`supabase/migrations`](supabase/migrations) — via the Supabase CLI (`supabase db push`) or by running the SQL directly against your database.
-3. Grab a connection string from your project's Database settings (the pooled connection, port 6543, is recommended for normal use).
+3. Grab a connection string from your project's Database settings — use the **Transaction pooler** connection (port `6543`), not the direct connection (port `5432`). Many hosts (Render included) don't support outbound IPv6, and Supabase's direct connection is IPv6-only in most regions; the pooler is IPv4-compatible and avoids a confusing `ENETUNREACH` at runtime.
 
 ### Run the server
 
@@ -55,7 +55,18 @@ PORT=3000 \
 - `PORT` — optional, defaults to `3000`.
 - `GET /health` returns `200 OK` and needs no auth, for use with your host's health checks.
 
-For a server reachable outside your own machine, deploy this process somewhere that runs long-lived Node processes (e.g. Fly.io, Render, Railway), keeping `DATABASE_URL` and `ORIUM_MCP_TOKEN` as secrets there.
+For a server reachable outside your own machine, deploy this process somewhere that runs long-lived Node processes (e.g. Render, Fly.io, Railway), keeping `DATABASE_URL` and `ORIUM_MCP_TOKEN` as secrets there.
+
+### Deploy on Render
+
+This repo includes a [`render.yaml`](render.yaml) blueprint:
+
+1. Push your fork to GitHub.
+2. On [Render](https://render.com), **New + → Blueprint**, connect your GitHub account, and select your fork.
+3. Render reads `render.yaml` and prompts you for the two secret env vars (`DATABASE_URL`, `ORIUM_MCP_TOKEN`) — paste in your Supabase pooler connection string and a generated token.
+4. Deploy. The free instance type works, with one caveat: it spins down after 15 minutes of inactivity, so the first request after an idle period will be slow (30-60s) or may time out in your MCP client.
+
+Any other host that runs a persistent Node process works too — the blueprint is just the fastest path.
 
 ### Add to Claude Desktop or Claude Code
 
