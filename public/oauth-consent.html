@@ -84,7 +84,7 @@
     <script>
       const SUPABASE_URL = "https://imxmcavkzpbbqbhcefkj.supabase.co";
       const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_8aMCvghGGRHIwMogWkHAzA_yl1yFI9N";
-      const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+      const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
       const loadingEl = document.getElementById("loading");
       const contentEl = document.getElementById("content");
@@ -110,7 +110,7 @@
 
         const {
           data: { user },
-        } = await supabase.auth.getUser();
+        } = await supabaseClient.auth.getUser();
 
         if (!user) {
           const currentUrl = window.location.pathname + window.location.search;
@@ -120,7 +120,7 @@
 
         let details;
         try {
-          details = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
+          details = await supabaseClient.auth.oauth.getAuthorizationDetails(authorizationId);
         } catch (error) {
           showError(`Could not load authorization details: ${error.message}`);
           return;
@@ -149,7 +149,7 @@
 
       document.getElementById("approveButton").addEventListener("click", async () => {
         try {
-          const result = await supabase.auth.oauth.approveAuthorization(authorizationId);
+          const result = await supabaseClient.auth.oauth.approveAuthorization(authorizationId);
           window.location.href = result.redirect_url;
         } catch (error) {
           showError(`Approval failed: ${error.message}`);
@@ -158,7 +158,7 @@
 
       document.getElementById("denyButton").addEventListener("click", async () => {
         try {
-          const result = await supabase.auth.oauth.denyAuthorization(authorizationId);
+          const result = await supabaseClient.auth.oauth.denyAuthorization(authorizationId);
           window.location.href = result.redirect_url;
         } catch (error) {
           showError(`Denial failed: ${error.message}`);
