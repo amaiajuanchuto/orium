@@ -1,23 +1,26 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
 import { registerCreateEntryTool } from "./createEntry.js";
 import { registerDeleteEntryTool } from "./deleteEntry.js";
-import type Database from "better-sqlite3";
 
-async function setup() {
-  const db = createDatabase(":memory:");
+const TEST_DATABASE_URL =
+  process.env.TEST_DATABASE_URL ??
+  "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+
+async function setup(sql: postgres.Sql) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, db);
-  registerDeleteEntryTool(server, db);
+  registerCreateEntryTool(server, sql);
+  registerDeleteEntryTool(server, sql);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
-  return { db, client };
+  return { client };
 }
 
 function textOf(result: Awaited<ReturnType<Client["callTool"]>>) {
@@ -26,11 +29,16 @@ function textOf(result: Awaited<ReturnType<Client["callTool"]>>) {
 }
 
 describe("delete_entry tool", () => {
-  let db: Database.Database;
+  const sql = createDatabase(TEST_DATABASE_URL);
   let client: Client;
 
   beforeEach(async () => {
-    ({ db, client } = await setup());
+    await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    ({ client } = await setup(sql));
+  });
+
+  afterAll(async () => {
+    await sql.end();
   });
 
   async function createSeedEntry() {
@@ -57,7 +65,7 @@ describe("delete_entry tool", () => {
     const content = result.content as Array<{ type: string; text: string }>;
     expect(content[0]!.text).toContain("2026-07-20");
 
-    const row = db.prepare("SELECT * FROM entries WHERE id = ?").get(seed.id);
+    const [row] = await sql`SELECT * FROM entries WHERE id = ${seed.id}`;
     expect(row).toBeUndefined();
   });
 
@@ -69,10 +77,10 @@ describe("delete_entry tool", () => {
       arguments: { id: seed.id },
     });
 
-    const remainingLinks = db
-      .prepare("SELECT COUNT(*) AS count FROM entry_tags WHERE entry_id = ?")
-      .get(seed.id) as { count: number };
-    expect(remainingLinks.count).toBe(0);
+    const [remainingLinks] = await sql<
+      { count: number }[]
+    >`SELECT COUNT(*)::int AS count FROM entry_tags WHERE entry_id = ${seed.id}`;
+    expect(remainingLinks!.count).toBe(0);
   });
 
   it("returns an error when the entry does not exist", async () => {

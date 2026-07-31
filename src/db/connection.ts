@@ -1,19 +1,30 @@
 /**
- * Opens (or creates) the SQLite database file and ensures its schema exists.
+ * Opens a connection to the Postgres database. The schema (tables, indexes,
+ * and the `updated_at` trigger) is managed via Supabase migrations — see
+ * supabase/migrations — not applied here.
  */
-import Database from "better-sqlite3";
-import { SCHEMA_SQL } from "./schema.js";
+import postgres from "postgres";
 
 /**
- * Opens a SQLite database at `filename` in WAL mode and applies the schema
- * (idempotent — safe to call against an existing database).
+ * Opens a Postgres connection at `connectionString`. Assumes the schema has
+ * already been applied via Supabase migrations.
  *
- * @param filename - Path to the SQLite database file.
- * @returns An open, ready-to-use database connection.
+ * Configures the `date` column type to pass through as a raw `YYYY-MM-DD`
+ * string rather than being parsed into a JS `Date`, matching the format the
+ * rest of the app (and its zod validation) expects.
+ *
+ * @param connectionString - A Postgres connection string (e.g. `DATABASE_URL`).
+ * @returns An open connection ready to run queries against.
  */
-export function createDatabase(filename: string): Database.Database {
-  const db = new Database(filename);
-  db.pragma("journal_mode = WAL");
-  db.exec(SCHEMA_SQL);
-  return db;
+export function createDatabase(connectionString: string): postgres.Sql {
+  return postgres(connectionString, {
+    types: {
+      date: {
+        to: 1082,
+        from: [1082],
+        serialize: (value: string): string => value,
+        parse: (value: string): string => value,
+      },
+    },
+  });
 }

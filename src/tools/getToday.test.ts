@@ -1,22 +1,26 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
 import { registerCreateEntryTool } from "./createEntry.js";
 import { registerGetTodayTool } from "./getToday.js";
 
-async function setup() {
-  const db = createDatabase(":memory:");
+const TEST_DATABASE_URL =
+  process.env.TEST_DATABASE_URL ??
+  "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+
+async function setup(sql: postgres.Sql) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, db);
-  registerGetTodayTool(server, db);
+  registerCreateEntryTool(server, sql);
+  registerGetTodayTool(server, sql);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
-  return { db, client };
+  return { client };
 }
 
 function textOf(result: Awaited<ReturnType<Client["callTool"]>>) {
@@ -25,10 +29,16 @@ function textOf(result: Awaited<ReturnType<Client["callTool"]>>) {
 }
 
 describe("get_today tool", () => {
+  const sql = createDatabase(TEST_DATABASE_URL);
   let client: Client;
 
   beforeEach(async () => {
-    ({ client } = await setup());
+    await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    ({ client } = await setup(sql));
+  });
+
+  afterAll(async () => {
+    await sql.end();
   });
 
   it("returns a friendly message when no entry exists for today", async () => {

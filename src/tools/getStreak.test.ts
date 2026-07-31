@@ -1,23 +1,26 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
 import { registerCreateEntryTool } from "./createEntry.js";
 import { registerGetStreakTool } from "./getStreak.js";
-import type Database from "better-sqlite3";
 
-async function setup() {
-  const db = createDatabase(":memory:");
+const TEST_DATABASE_URL =
+  process.env.TEST_DATABASE_URL ??
+  "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+
+async function setup(sql: postgres.Sql) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, db);
-  registerGetStreakTool(server, db);
+  registerCreateEntryTool(server, sql);
+  registerGetStreakTool(server, sql);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
-  return { db, client };
+  return { client };
 }
 
 function textOf(result: Awaited<ReturnType<Client["callTool"]>>) {
@@ -32,11 +35,16 @@ function daysAgo(n: number): string {
 }
 
 describe("get_streak tool", () => {
-  let db: Database.Database;
+  const sql = createDatabase(TEST_DATABASE_URL);
   let client: Client;
 
   beforeEach(async () => {
-    ({ db, client } = await setup());
+    await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    ({ client } = await setup(sql));
+  });
+
+  afterAll(async () => {
+    await sql.end();
   });
 
   async function seedEntry(daysBack: number) {
@@ -127,12 +135,11 @@ describe("get_streak tool", () => {
   });
 
   it("returns no next milestone once the longest milestone is passed", async () => {
-    const insert = db.prepare(
-      "INSERT INTO entries (date, mood_rating, energy_level) VALUES (?, 5, 5)",
-    );
-    for (let i = 0; i < 365; i++) {
-      insert.run(daysAgo(i));
-    }
+    const dates = Array.from({ length: 365 }, (_, i) => daysAgo(i));
+    await sql`
+      INSERT INTO entries (date, mood_rating, energy_level)
+      SELECT unnest(${dates}::date[]), 5, 5
+    `;
 
     const result = await client.callTool({ name: "get_streak", arguments: {} });
     const body = JSON.parse(textOf(result));

@@ -2,7 +2,7 @@
  * `get_summary` MCP tool: Orium's comprehensive week/month review,
  * combining averages, trend, best/worst days, tags, and streak.
  */
-import type Database from "better-sqlite3";
+import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { addDays, round, toISODate } from "../db/dates.js";
@@ -44,33 +44,33 @@ interface TagImpact {
 /**
  * Averages mood, energy, and sleep over an inclusive date range.
  *
- * @param db - Open database connection.
+ * @param sql - Open database connection.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @returns Rounded averages and the number of entries the range covered.
  */
-function getAverages(db: Database.Database, start: string, end: string): Averages {
-  const row = db
-    .prepare(
-      `SELECT AVG(mood_rating) AS mood_rating,
-              AVG(energy_level) AS energy_level,
-              AVG(sleep_hours) AS sleep_hours,
-              COUNT(*) AS entry_count
-       FROM entries
-       WHERE date BETWEEN ? AND ?`,
-    )
-    .get(start, end) as {
-    mood_rating: number | null;
-    energy_level: number | null;
-    sleep_hours: number | null;
-    entry_count: number;
-  };
+async function getAverages(sql: postgres.Sql, start: string, end: string): Promise<Averages> {
+  const [row] = await sql<
+    {
+      mood_rating: number | null;
+      energy_level: number | null;
+      sleep_hours: number | null;
+      entry_count: number;
+    }[]
+  >`
+    SELECT AVG(mood_rating) AS mood_rating,
+           AVG(energy_level) AS energy_level,
+           AVG(sleep_hours) AS sleep_hours,
+           COUNT(*)::int AS entry_count
+    FROM entries
+    WHERE date BETWEEN ${start} AND ${end}
+  `;
 
   return {
-    mood_rating: round(row.mood_rating),
-    energy_level: round(row.energy_level),
-    sleep_hours: round(row.sleep_hours),
-    entry_count: row.entry_count,
+    mood_rating: round(row!.mood_rating === null ? null : Number(row!.mood_rating)),
+    energy_level: round(row!.energy_level === null ? null : Number(row!.energy_level)),
+    sleep_hours: round(row!.sleep_hours === null ? null : Number(row!.sleep_hours)),
+    entry_count: row!.entry_count,
   };
 }
 
@@ -93,62 +93,58 @@ function getDirection(current: number, previous: number | null): Direction {
 /**
  * Finds the single highest-mood entry within an inclusive date range.
  *
- * @param db - Open database connection.
+ * @param sql - Open database connection.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @returns The date and mood rating of the best-rated entry.
  */
-function getBestDay(db: Database.Database, start: string, end: string): DayEntry {
-  return db
-    .prepare(
-      `SELECT date, mood_rating FROM entries
-       WHERE date BETWEEN ? AND ?
-       ORDER BY mood_rating DESC, date ASC
-       LIMIT 1`,
-    )
-    .get(start, end) as DayEntry;
+async function getBestDay(sql: postgres.Sql, start: string, end: string): Promise<DayEntry> {
+  const [row] = await sql<DayEntry[]>`
+    SELECT date, mood_rating FROM entries
+    WHERE date BETWEEN ${start} AND ${end}
+    ORDER BY mood_rating DESC, date ASC
+    LIMIT 1
+  `;
+  return row!;
 }
 
 /**
  * Finds the single lowest-mood entry within an inclusive date range.
  *
- * @param db - Open database connection.
+ * @param sql - Open database connection.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @returns The date and mood rating of the worst-rated entry.
  */
-function getWorstDay(db: Database.Database, start: string, end: string): DayEntry {
-  return db
-    .prepare(
-      `SELECT date, mood_rating FROM entries
-       WHERE date BETWEEN ? AND ?
-       ORDER BY mood_rating ASC, date ASC
-       LIMIT 1`,
-    )
-    .get(start, end) as DayEntry;
+async function getWorstDay(sql: postgres.Sql, start: string, end: string): Promise<DayEntry> {
+  const [row] = await sql<DayEntry[]>`
+    SELECT date, mood_rating FROM entries
+    WHERE date BETWEEN ${start} AND ${end}
+    ORDER BY mood_rating ASC, date ASC
+    LIMIT 1
+  `;
+  return row!;
 }
 
 /**
  * Finds the 5 most-used tags within an inclusive date range.
  *
- * @param db - Open database connection.
+ * @param sql - Open database connection.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @returns Up to 5 tags with their usage counts, most-used first.
  */
-function getTopTags(db: Database.Database, start: string, end: string): TagCount[] {
-  return db
-    .prepare(
-      `SELECT t.name AS tag, COUNT(*) AS count
-       FROM entries e
-       JOIN entry_tags et ON et.entry_id = e.id
-       JOIN tags t ON t.id = et.tag_id
-       WHERE e.date BETWEEN ? AND ?
-       GROUP BY t.name
-       ORDER BY count DESC, t.name ASC
-       LIMIT 5`,
-    )
-    .all(start, end) as TagCount[];
+async function getTopTags(sql: postgres.Sql, start: string, end: string): Promise<TagCount[]> {
+  return sql<TagCount[]>`
+    SELECT t.name AS tag, COUNT(*)::int AS count
+    FROM entries e
+    JOIN entry_tags et ON et.entry_id = e.id
+    JOIN tags t ON t.id = et.tag_id
+    WHERE e.date BETWEEN ${start} AND ${end}
+    GROUP BY t.name
+    ORDER BY count DESC, t.name ASC
+    LIMIT 5
+  `;
 }
 
 /**
@@ -156,38 +152,39 @@ function getTopTags(db: Database.Database, start: string, end: string): TagCount
  * within an inclusive date range, each measured as the tag's average mood
  * minus the period's overall average mood.
  *
- * @param db - Open database connection.
+ * @param sql - Open database connection.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @param overallMood - The period's overall average mood, for comparison.
  * @returns The most positive/negative tag impacts, or null if no tags used.
  */
-function getTagImpact(
-  db: Database.Database,
+async function getTagImpact(
+  sql: postgres.Sql,
   start: string,
   end: string,
   overallMood: number,
-): { most_positive: TagImpact | null; most_negative: TagImpact | null } {
-  const rows = db
-    .prepare(
-      `SELECT t.name AS tag, AVG(e.mood_rating) AS avg_mood
-       FROM entries e
-       JOIN entry_tags et ON et.entry_id = e.id
-       JOIN tags t ON t.id = et.tag_id
-       WHERE e.date BETWEEN ? AND ?
-       GROUP BY t.name`,
-    )
-    .all(start, end) as Array<{ tag: string; avg_mood: number }>;
+): Promise<{ most_positive: TagImpact | null; most_negative: TagImpact | null }> {
+  const rows = await sql<{ tag: string; avg_mood: number }[]>`
+    SELECT t.name AS tag, AVG(e.mood_rating) AS avg_mood
+    FROM entries e
+    JOIN entry_tags et ON et.entry_id = e.id
+    JOIN tags t ON t.id = et.tag_id
+    WHERE e.date BETWEEN ${start} AND ${end}
+    GROUP BY t.name
+  `;
 
   if (rows.length === 0) {
     return { most_positive: null, most_negative: null };
   }
 
-  const impacts: TagImpact[] = rows.map((row) => ({
-    tag: row.tag,
-    avg_mood: round(row.avg_mood),
-    difference: round(row.avg_mood - overallMood),
-  }));
+  const impacts: TagImpact[] = rows.map((row) => {
+    const avgMood = Number(row.avg_mood);
+    return {
+      tag: row.tag,
+      avg_mood: round(avgMood),
+      difference: round(avgMood - overallMood),
+    };
+  });
 
   const most_positive = impacts.reduce((a, b) => (b.difference > a.difference ? b : a));
   const most_negative = impacts.reduce((a, b) => (b.difference < a.difference ? b : a));
@@ -255,7 +252,7 @@ function buildMessage(
  * combining averages, trend, best/worst days, top tags, tag impact, and
  * streak into one data-driven summary with a personalized message.
  */
-export function registerGetSummaryTool(server: McpServer, db: Database.Database): void {
+export function registerGetSummaryTool(server: McpServer, sql: postgres.Sql): void {
   server.registerTool(
     "get_summary",
     {
@@ -265,7 +262,7 @@ export function registerGetSummaryTool(server: McpServer, db: Database.Database)
         "trend, best/worst days, top tags, tag impact, streak, and a personalized message.",
       inputSchema: getSummaryInputSchema,
     },
-    ({ period }) => {
+    async ({ period }) => {
       const periodDays = PERIOD_DAYS[period];
       const today = toISODate(new Date());
 
@@ -274,7 +271,7 @@ export function registerGetSummaryTool(server: McpServer, db: Database.Database)
       const previousEnd = addDays(currentStart, -1);
       const previousStart = addDays(previousEnd, -(periodDays - 1));
 
-      const averages = getAverages(db, currentStart, currentEnd);
+      const averages = await getAverages(sql, currentStart, currentEnd);
 
       if (averages.entry_count === 0) {
         return {
@@ -287,22 +284,28 @@ export function registerGetSummaryTool(server: McpServer, db: Database.Database)
         };
       }
 
-      const previousAverages = getAverages(db, previousStart, previousEnd);
+      const previousAverages = await getAverages(sql, previousStart, previousEnd);
       const previousMood =
         previousAverages.entry_count > 0 ? previousAverages.mood_rating : null;
       const trendDirection = getDirection(averages.mood_rating!, previousMood);
       const trendDifference =
         previousMood === null ? null : round(averages.mood_rating! - previousMood);
 
-      const bestDay = getBestDay(db, currentStart, currentEnd);
-      const worstDay = getWorstDay(db, currentStart, currentEnd);
-      const topTags = getTopTags(db, currentStart, currentEnd);
-      const tagImpact = getTagImpact(db, currentStart, currentEnd, averages.mood_rating!);
+      const bestDay = await getBestDay(sql, currentStart, currentEnd);
+      const worstDay = await getWorstDay(sql, currentStart, currentEnd);
+      const topTags = await getTopTags(sql, currentStart, currentEnd);
+      const tagImpact = await getTagImpact(
+        sql,
+        currentStart,
+        currentEnd,
+        averages.mood_rating!,
+      );
 
-      const allDates = db
-        .prepare("SELECT DISTINCT date FROM entries ORDER BY date DESC")
-        .all()
-        .map((row) => (row as { date: string }).date);
+      const allDates = (
+        await sql<
+          { date: string }[]
+        >`SELECT DISTINCT date FROM entries ORDER BY date DESC`
+      ).map((row) => row.date);
       const { streak: currentStreak } = computeCurrentStreak(new Set(allDates), today);
 
       const message = buildMessage(

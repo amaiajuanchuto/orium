@@ -1,29 +1,37 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
 import { registerCreateEntryTool } from "./createEntry.js";
-import type Database from "better-sqlite3";
 
-async function setup() {
-  const db = createDatabase(":memory:");
+const TEST_DATABASE_URL =
+  process.env.TEST_DATABASE_URL ??
+  "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+
+async function setup(sql: postgres.Sql) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, db);
+  registerCreateEntryTool(server, sql);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
-  return { db, client };
+  return { client };
 }
 
 describe("create_entry tool", () => {
-  let db: Database.Database;
+  const sql = createDatabase(TEST_DATABASE_URL);
   let client: Client;
 
   beforeEach(async () => {
-    ({ db, client } = await setup());
+    await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    ({ client } = await setup(sql));
+  });
+
+  afterAll(async () => {
+    await sql.end();
   });
 
   it("inserts an entry and returns it", async () => {
@@ -49,7 +57,7 @@ describe("create_entry tool", () => {
       notes: "Felt good today",
     });
 
-    const row = db.prepare("SELECT * FROM entries WHERE id = ?").get(entry.id);
+    const [row] = await sql`SELECT * FROM entries WHERE id = ${entry.id}`;
     expect(row).toBeDefined();
   });
 
@@ -67,15 +75,14 @@ describe("create_entry tool", () => {
     const content = result.content as Array<{ type: string; text: string }>;
     const entry = JSON.parse(content[0]!.text);
 
-    const tagNames = db
-      .prepare(
-        `SELECT t.name FROM tags t
-         JOIN entry_tags et ON et.tag_id = t.id
-         WHERE et.entry_id = ?
-         ORDER BY t.name`,
-      )
-      .all(entry.id)
-      .map((r) => (r as { name: string }).name);
+    const tagNames = (
+      await sql<{ name: string }[]>`
+        SELECT t.name FROM tags t
+        JOIN entry_tags et ON et.tag_id = t.id
+        WHERE et.entry_id = ${entry.id}
+        ORDER BY t.name
+      `
+    ).map((r) => r.name);
 
     expect(tagNames).toEqual(["grateful", "tired"]);
   });

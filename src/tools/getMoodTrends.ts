@@ -2,7 +2,7 @@
  * `get_mood_trends` MCP tool: compares recent averages against the prior
  * equivalent period.
  */
-import type Database from "better-sqlite3";
+import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { addDays, round, toISODate } from "../db/dates.js";
@@ -29,37 +29,37 @@ type Direction = "up" | "down" | "stable";
 /**
  * Averages mood, energy, and sleep over an inclusive date range.
  *
- * @param db - Open database connection.
+ * @param sql - Open database connection.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @returns Rounded averages and the number of entries the range covered.
  */
-function getPeriodAverages(
-  db: Database.Database,
+async function getPeriodAverages(
+  sql: postgres.Sql,
   start: string,
   end: string,
-): PeriodAverages {
-  const row = db
-    .prepare(
-      `SELECT AVG(mood_rating) AS mood_rating,
-              AVG(energy_level) AS energy_level,
-              AVG(sleep_hours) AS sleep_hours,
-              COUNT(*) AS entry_count
-       FROM entries
-       WHERE date BETWEEN ? AND ?`,
-    )
-    .get(start, end) as {
-    mood_rating: number | null;
-    energy_level: number | null;
-    sleep_hours: number | null;
-    entry_count: number;
-  };
+): Promise<PeriodAverages> {
+  const [row] = await sql<
+    {
+      mood_rating: number | null;
+      energy_level: number | null;
+      sleep_hours: number | null;
+      entry_count: number;
+    }[]
+  >`
+    SELECT AVG(mood_rating) AS mood_rating,
+           AVG(energy_level) AS energy_level,
+           AVG(sleep_hours) AS sleep_hours,
+           COUNT(*)::int AS entry_count
+    FROM entries
+    WHERE date BETWEEN ${start} AND ${end}
+  `;
 
   return {
-    mood_rating: round(row.mood_rating),
-    energy_level: round(row.energy_level),
-    sleep_hours: round(row.sleep_hours),
-    entry_count: row.entry_count,
+    mood_rating: round(row!.mood_rating === null ? null : Number(row!.mood_rating)),
+    energy_level: round(row!.energy_level === null ? null : Number(row!.energy_level)),
+    sleep_hours: round(row!.sleep_hours === null ? null : Number(row!.sleep_hours)),
+    entry_count: row!.entry_count,
   };
 }
 
@@ -87,10 +87,7 @@ function getDirection(current: number | null, previous: number | null): Directio
  * energy, and sleep over the last 7/30/90 days against the equivalent
  * prior period.
  */
-export function registerGetMoodTrendsTool(
-  server: McpServer,
-  db: Database.Database,
-): void {
+export function registerGetMoodTrendsTool(server: McpServer, sql: postgres.Sql): void {
   server.registerTool(
     "get_mood_trends",
     {
@@ -100,7 +97,7 @@ export function registerGetMoodTrendsTool(
         "quarter against the equivalent prior period.",
       inputSchema: getMoodTrendsInputSchema,
     },
-    ({ period }) => {
+    async ({ period }) => {
       const periodDays = PERIOD_DAYS[period];
       const today = toISODate(new Date());
 
@@ -109,7 +106,7 @@ export function registerGetMoodTrendsTool(
       const previousEnd = addDays(currentStart, -1);
       const previousStart = addDays(previousEnd, -(periodDays - 1));
 
-      const current = getPeriodAverages(db, currentStart, currentEnd);
+      const current = await getPeriodAverages(sql, currentStart, currentEnd);
 
       if (current.entry_count === 0) {
         return {
@@ -122,7 +119,7 @@ export function registerGetMoodTrendsTool(
         };
       }
 
-      const previous = getPeriodAverages(db, previousStart, previousEnd);
+      const previous = await getPeriodAverages(sql, previousStart, previousEnd);
 
       const result = {
         period,

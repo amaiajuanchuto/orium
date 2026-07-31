@@ -2,7 +2,7 @@
  * `get_streak` MCP tool: reports the current/longest logging streaks and
  * progress toward the next milestone.
  */
-import type Database from "better-sqlite3";
+import type postgres from "postgres";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { addDays, toISODate } from "../db/dates.js";
 import { computeCurrentStreak } from "../db/streak.js";
@@ -61,7 +61,7 @@ function buildMessage(
  * daily-logging streak (broken by any missed calendar day), the longest
  * streak ever, and the next milestone with a motivational message.
  */
-export function registerGetStreakTool(server: McpServer, db: Database.Database): void {
+export function registerGetStreakTool(server: McpServer, sql: postgres.Sql): void {
   server.registerTool(
     "get_streak",
     {
@@ -70,11 +70,12 @@ export function registerGetStreakTool(server: McpServer, db: Database.Database):
         "Report the current and longest consecutive daily journaling streaks, and " +
         "how close the user is to their next milestone.",
     },
-    () => {
-      const dates = db
-        .prepare("SELECT DISTINCT date FROM entries ORDER BY date DESC")
-        .all()
-        .map((row) => (row as { date: string }).date);
+    async () => {
+      const dates = (
+        await sql<
+          { date: string }[]
+        >`SELECT DISTINCT date FROM entries ORDER BY date DESC`
+      ).map((row) => row.date);
 
       if (dates.length === 0) {
         return {

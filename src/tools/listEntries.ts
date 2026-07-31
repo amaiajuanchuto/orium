@@ -1,7 +1,7 @@
 /**
  * `list_entries` MCP tool: queries journal entries with optional filters.
  */
-import type Database from "better-sqlite3";
+import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DATE_REGEX, type Entry, type EntryWithTags } from "../db/types.js";
@@ -22,7 +22,7 @@ const listEntriesInputSchema = {
  * recent first) filtered by date range, mood/energy range, and/or tag,
  * each annotated with its linked tag names.
  */
-export function registerListEntriesTool(server: McpServer, db: Database.Database): void {
+export function registerListEntriesTool(server: McpServer, sql: postgres.Sql): void {
   server.registerTool(
     "list_entries",
     {
@@ -32,7 +32,7 @@ export function registerListEntriesTool(server: McpServer, db: Database.Database
         "mood/energy range, or tag.",
       inputSchema: listEntriesInputSchema,
     },
-    ({
+    async ({
       from,
       to,
       tag,
@@ -42,68 +42,40 @@ export function registerListEntriesTool(server: McpServer, db: Database.Database
       max_energy_level,
       limit,
     }) => {
-      const conditions: string[] = [];
-      const params: Array<string | number> = [];
+      const entries = await sql<Entry[]>`
+        SELECT e.* FROM entries e
+        WHERE (${from ?? null}::date IS NULL OR e.date >= ${from ?? null})
+          AND (${to ?? null}::date IS NULL OR e.date <= ${to ?? null})
+          AND (${min_mood_rating ?? null}::int IS NULL OR e.mood_rating >= ${min_mood_rating ?? null})
+          AND (${max_mood_rating ?? null}::int IS NULL OR e.mood_rating <= ${max_mood_rating ?? null})
+          AND (${min_energy_level ?? null}::int IS NULL OR e.energy_level >= ${min_energy_level ?? null})
+          AND (${max_energy_level ?? null}::int IS NULL OR e.energy_level <= ${max_energy_level ?? null})
+          AND (
+            ${tag?.trim().toLowerCase() ?? null}::text IS NULL
+            OR e.id IN (
+              SELECT et.entry_id FROM entry_tags et
+              JOIN tags t ON t.id = et.tag_id
+              WHERE t.name = ${tag?.trim().toLowerCase() ?? null}
+            )
+          )
+        ORDER BY e.date DESC, e.id DESC
+        LIMIT ${limit ?? 20}
+      `;
 
-      if (from !== undefined) {
-        conditions.push("e.date >= ?");
-        params.push(from);
-      }
-      if (to !== undefined) {
-        conditions.push("e.date <= ?");
-        params.push(to);
-      }
-      if (min_mood_rating !== undefined) {
-        conditions.push("e.mood_rating >= ?");
-        params.push(min_mood_rating);
-      }
-      if (max_mood_rating !== undefined) {
-        conditions.push("e.mood_rating <= ?");
-        params.push(max_mood_rating);
-      }
-      if (min_energy_level !== undefined) {
-        conditions.push("e.energy_level >= ?");
-        params.push(min_energy_level);
-      }
-      if (max_energy_level !== undefined) {
-        conditions.push("e.energy_level <= ?");
-        params.push(max_energy_level);
-      }
-      if (tag !== undefined) {
-        conditions.push(
-          `e.id IN (
-             SELECT et.entry_id FROM entry_tags et
-             JOIN tags t ON t.id = et.tag_id
-             WHERE t.name = ?
-           )`,
-        );
-        params.push(tag.trim().toLowerCase());
-      }
+      const entriesWithTags: EntryWithTags[] = await Promise.all(
+        entries.map(async (entry) => {
+          const tags = (
+            await sql<{ name: string }[]>`
+              SELECT t.name FROM tags t
+              JOIN entry_tags et ON et.tag_id = t.id
+              WHERE et.entry_id = ${entry.id}
+              ORDER BY t.name
+            `
+          ).map((row) => row.name);
 
-      const whereClause =
-        conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-      params.push(limit ?? 20);
-
-      const entries = db
-        .prepare(
-          `SELECT e.* FROM entries e
-           ${whereClause}
-           ORDER BY e.date DESC, e.id DESC
-           LIMIT ?`,
-        )
-        .all(...params) as Entry[];
-
-      const tagsForEntry = db.prepare(
-        `SELECT t.name FROM tags t
-         JOIN entry_tags et ON et.tag_id = t.id
-         WHERE et.entry_id = ?
-         ORDER BY t.name`,
+          return { ...entry, tags };
+        }),
       );
-
-      const entriesWithTags: EntryWithTags[] = entries.map((entry) => ({
-        ...entry,
-        tags: tagsForEntry.all(entry.id).map((row) => (row as { name: string }).name),
-      }));
 
       return {
         content: [{ type: "text", text: JSON.stringify(entriesWithTags, null, 2) }],

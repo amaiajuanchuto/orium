@@ -1,7 +1,7 @@
 /**
  * `delete_entry` MCP tool: removes a journal entry (and its tag links) by id.
  */
-import type Database from "better-sqlite3";
+import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Entry } from "../db/types.js";
@@ -15,7 +15,7 @@ const deleteEntryInputSchema = {
  * Its tag links in entry_tags are removed automatically via ON DELETE
  * CASCADE. Returns an error if no entry exists with the given id.
  */
-export function registerDeleteEntryTool(server: McpServer, db: Database.Database): void {
+export function registerDeleteEntryTool(server: McpServer, sql: postgres.Sql): void {
   server.registerTool(
     "delete_entry",
     {
@@ -27,9 +27,8 @@ export function registerDeleteEntryTool(server: McpServer, db: Database.Database
         idempotentHint: true,
       },
     },
-    ({ id }) => {
-      const entry = db.prepare("SELECT * FROM entries WHERE id = ?").get(id) as
-        Entry | undefined;
+    async ({ id }) => {
+      const [entry] = await sql<Entry[]>`SELECT * FROM entries WHERE id = ${id}`;
 
       if (!entry) {
         return {
@@ -38,7 +37,7 @@ export function registerDeleteEntryTool(server: McpServer, db: Database.Database
         };
       }
 
-      db.prepare("DELETE FROM entries WHERE id = ?").run(id);
+      await sql`DELETE FROM entries WHERE id = ${id}`;
 
       return {
         content: [

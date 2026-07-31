@@ -1,6 +1,6 @@
 # Orium 🥝
 
-**Orium is an MCP server for mental health journaling.** Track your mood, energy, sleep, and thoughts by just talking to Claude; no app to open, no form to fill out. Entries are stored locally in a SQLite database on your own machine, so your journal never leaves your computer.
+**Orium is an MCP server for mental health journaling.** Track your mood, energy, sleep, and thoughts by just talking to Claude; no app to open, no form to fill out. Entries are stored in a Postgres database (Supabase), so your journal persists across machines and sessions.
 
 ```
 You:    Log today — mood 7, energy 6, slept 7.5 hours, feeling good after the gym
@@ -12,15 +12,13 @@ Claude: Your mood is up 12% vs. last month, and you're on a 9-day logging streak
 
 ## Why Orium
 
-- **Private by default** — your entries live in a local SQLite file, not a third-party server.
 - **No new app to learn** — journal from any Claude surface (Desktop, Code, CLI) using plain language.
 - **Actually useful over time** — trends, correlations, and streaks turn a pile of entries into insight instead of just a diary.
 
 ## Requirements
 
 - Node.js 18+
-- A working C/C++ toolchain (needed to build the `better-sqlite3` native module — on
-  macOS this means functioning Xcode Command Line Tools)
+- A Postgres database — a free [Supabase](https://supabase.com) project is the easiest way to get one
 
 ## Installation
 
@@ -33,50 +31,39 @@ npm install
 npm run build
 ```
 
-This produces a runnable server at `dist/index.js`. Note the full path to this repo — you'll need it to point your MCP client at the server below.
+This produces a runnable server at `dist/index.js`.
 
-### Add to Claude Desktop
+### Set up the database
 
-Open your Claude Desktop config and add:
+1. Create a Supabase project (or use any Postgres instance).
+2. Apply the schema in [`supabase/migrations`](supabase/migrations) — via the Supabase CLI (`supabase db push`) or by running the SQL directly against your database.
+3. Grab a connection string from your project's Database settings (the pooled connection, port 6543, is recommended for normal use).
 
-```json
-{
-  "mcpServers": {
-    "orium": {
-      "command": "node",
-      "args": ["/absolute/path/to/orium-mcp/dist/index.js"]
-    }
-  }
-}
-```
+### Run the server
 
-Restart Claude Desktop. You should see Orium's tools available in the 🔨 tools menu.
-
-### Add to Claude Code
+Orium is an MCP server over **Streamable HTTP**, not stdio — it runs as a long-lived process that your MCP client connects to over the network (locally or remotely), rather than being launched per-client.
 
 ```bash
-claude mcp add orium -- node /absolute/path/to/orium-mcp/dist/index.js
+DATABASE_URL="postgresql://postgres:[password]@[host]:6543/postgres" \
+ORIUM_MCP_TOKEN="pick-a-long-random-secret" \
+PORT=3000 \
+  npm start
 ```
 
-Verify it's connected with `claude mcp list`, or check its status inside a session with `/mcp`.
+- `DATABASE_URL` — required, your Postgres connection string.
+- `ORIUM_MCP_TOKEN` — required, a shared secret clients must send as `Authorization: Bearer <token>`. Generate one with `openssl rand -hex 32`.
+- `PORT` — optional, defaults to `3000`.
+- `GET /health` returns `200 OK` and needs no auth, for use with your host's health checks.
+
+For a server reachable outside your own machine, deploy this process somewhere that runs long-lived Node processes (e.g. Fly.io, Render, Railway), keeping `DATABASE_URL` and `ORIUM_MCP_TOKEN` as secrets there.
+
+### Add to Claude Desktop or Claude Code
+
+Both accept a remote MCP server by URL. Point either at `http://<host>:<port>/mcp` (or your deployed HTTPS URL) with the bearer token in the `Authorization` header — consult your client's docs for the current syntax for adding a remote/HTTP MCP server, as this is evolving faster than most other parts of the MCP spec.
 
 ### Where your data goes
 
-By default, entries are stored in `orium.db` in the directory the server runs from. To keep all your journal data in one predictable place regardless of working directory, point it somewhere explicit with `ORIUM_DB_PATH`:
-
-```json
-{
-  "mcpServers": {
-    "orium": {
-      "command": "node",
-      "args": ["/absolute/path/to/orium-mcp/dist/index.js"],
-      "env": {
-        "ORIUM_DB_PATH": "/Users/you/orium/orium.db"
-      }
-    }
-  }
-}
-```
+Entries live in the Postgres database at `DATABASE_URL`. The same database — and the same running server — is reachable from any client that has the URL and the bearer token, from any machine.
 
 ## Usage examples
 
@@ -128,9 +115,9 @@ Once connected, just talk to Claude naturally; it picks the right tool for you.
 
 ## Database schema
 
-Three tables, defined in [`src/db/schema.ts`](src/db/schema.ts):
+Three tables, defined in [`supabase/migrations`](supabase/migrations):
 
-- **entries** — one row per journal entry (`date`, `mood_rating` and `energy_level` 1–10, `sleep_hours`, `notes`, timestamps)
+- **entries** — one row per journal entry (`date`, `mood_rating` and `energy_level` 1–10, `sleep_hours`, `notes`, timestamps; `updated_at` is refreshed automatically by a trigger)
 - **tags** — reusable tag names
 - **entry_tags** — many-to-many join between entries and tags, with cascading deletes
 
@@ -151,16 +138,17 @@ Three tables, defined in [`src/db/schema.ts`](src/db/schema.ts):
 ## Project structure
 
 ```
+supabase/
+  migrations/          # schema (source of truth), applied via the Supabase CLI/MCP
 src/
   db/
-    schema.ts        # table definitions (source of truth)
-    connection.ts     # opens the SQLite DB and applies the schema
+    connection.ts       # opens the Postgres connection
     connection.test.ts
-    types.ts          # shared Entry / EntryWithTags types
-    validation.ts      # shared zod schemas (e.g. dateSchema)
-    tags.ts            # tag upsert helper
-    dates.ts            # shared date helpers (toISODate, addDays, round)
-    streak.ts           # shared streak calculation
+    types.ts             # shared Entry / EntryWithTags types
+    validation.ts         # shared zod schemas (e.g. dateSchema)
+    tags.ts                # tag upsert helper
+    dates.ts                 # shared date helpers (toISODate, addDays, round)
+    streak.ts                 # shared streak calculation
   tools/
     createEntry.ts
     listEntries.ts
@@ -178,7 +166,14 @@ src/
 
 ## Contributing
 
-Issues and PRs are welcome. Before opening a PR, please run:
+Tests run against a local Postgres instance via the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) — install it, make sure Docker is running, then:
+
+```bash
+supabase start   # boots a local Postgres + applies supabase/migrations
+npm test
+```
+
+Before opening a PR, please run:
 
 ```bash
 npm run lint && npm run format:check && npm test

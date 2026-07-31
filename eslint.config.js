@@ -16,6 +16,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["dist/**", "node_modules/**", "*.db"],
+    ignores: ["dist/**", "node_modules/**", "*.db", "supabase/.temp/**"],
   },
 );

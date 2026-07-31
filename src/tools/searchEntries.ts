@@ -1,7 +1,7 @@
 /**
  * `search_entries` MCP tool: keyword search across entry notes.
  */
-import type Database from "better-sqlite3";
+import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Entry, EntryWithTags } from "../db/types.js";
@@ -13,8 +13,8 @@ const searchEntriesInputSchema = {
 const MAX_RESULTS = 50;
 
 /**
- * Escapes SQLite `LIKE` wildcard characters (`%`, `_`, `\`) in `value` so it
- * can be safely embedded in a `LIKE ... ESCAPE '\'` pattern as a literal
+ * Escapes Postgres `LIKE` wildcard characters (`%`, `_`, `\`) in `value` so
+ * it can be safely embedded in a `LIKE ... ESCAPE '\'` pattern as a literal
  * substring match.
  *
  * @param value - Raw user-provided search keyword.
@@ -29,10 +29,7 @@ function escapeLikePattern(value: string): string {
  * search for `keyword` across entry notes, returning matches (with their
  * tags) ordered by date descending, capped at 50 results.
  */
-export function registerSearchEntriesTool(
-  server: McpServer,
-  db: Database.Database,
-): void {
+export function registerSearchEntriesTool(server: McpServer, sql: postgres.Sql): void {
   server.registerTool(
     "search_entries",
     {
@@ -40,17 +37,15 @@ export function registerSearchEntriesTool(
       description: "Search journal entry notes for a keyword (case-insensitive).",
       inputSchema: searchEntriesInputSchema,
     },
-    ({ keyword }) => {
+    async ({ keyword }) => {
       const pattern = `%${escapeLikePattern(keyword)}%`;
 
-      const entries = db
-        .prepare(
-          `SELECT * FROM entries
-           WHERE notes IS NOT NULL AND LOWER(notes) LIKE LOWER(?) ESCAPE '\\'
-           ORDER BY date DESC, id DESC
-           LIMIT ?`,
-        )
-        .all(pattern, MAX_RESULTS) as Entry[];
+      const entries = await sql<Entry[]>`
+        SELECT * FROM entries
+        WHERE notes IS NOT NULL AND LOWER(notes) LIKE LOWER(${pattern}) ESCAPE '\\'
+        ORDER BY date DESC, id DESC
+        LIMIT ${MAX_RESULTS}
+      `;
 
       if (entries.length === 0) {
         return {
@@ -58,17 +53,20 @@ export function registerSearchEntriesTool(
         };
       }
 
-      const tagsForEntry = db.prepare(
-        `SELECT t.name FROM tags t
-         JOIN entry_tags et ON et.tag_id = t.id
-         WHERE et.entry_id = ?
-         ORDER BY t.name`,
-      );
+      const entriesWithTags: EntryWithTags[] = await Promise.all(
+        entries.map(async (entry) => {
+          const tags = (
+            await sql<{ name: string }[]>`
+              SELECT t.name FROM tags t
+              JOIN entry_tags et ON et.tag_id = t.id
+              WHERE et.entry_id = ${entry.id}
+              ORDER BY t.name
+            `
+          ).map((row) => row.name);
 
-      const entriesWithTags: EntryWithTags[] = entries.map((entry) => ({
-        ...entry,
-        tags: tagsForEntry.all(entry.id).map((row) => (row as { name: string }).name),
-      }));
+          return { ...entry, tags };
+        }),
+      );
 
       return {
         content: [

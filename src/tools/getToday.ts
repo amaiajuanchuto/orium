@@ -1,7 +1,7 @@
 /**
  * `get_today` MCP tool: looks up whether today's journal entry exists.
  */
-import type Database from "better-sqlite3";
+import type postgres from "postgres";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Entry, EntryWithTags } from "../db/types.js";
 
@@ -10,18 +10,17 @@ import type { Entry, EntryWithTags } from "../db/types.js";
  * today's date (based on the system clock) and returns it with its
  * linked tags, or a friendly prompt if no entry has been logged yet.
  */
-export function registerGetTodayTool(server: McpServer, db: Database.Database): void {
+export function registerGetTodayTool(server: McpServer, sql: postgres.Sql): void {
   server.registerTool(
     "get_today",
     {
       title: "Get today's journal entry",
       description: "Look up today's journal entry, if one exists, along with its tags.",
     },
-    () => {
+    async () => {
       const today = new Date().toISOString().slice(0, 10);
 
-      const entry = db.prepare("SELECT * FROM entries WHERE date = ?").get(today) as
-        Entry | undefined;
+      const [entry] = await sql<Entry[]>`SELECT * FROM entries WHERE date = ${today}`;
 
       if (!entry) {
         return {
@@ -31,15 +30,14 @@ export function registerGetTodayTool(server: McpServer, db: Database.Database): 
         };
       }
 
-      const tags = db
-        .prepare(
-          `SELECT t.name FROM tags t
-           JOIN entry_tags et ON et.tag_id = t.id
-           WHERE et.entry_id = ?
-           ORDER BY t.name`,
-        )
-        .all(entry.id)
-        .map((row) => (row as { name: string }).name);
+      const tags = (
+        await sql<{ name: string }[]>`
+          SELECT t.name FROM tags t
+          JOIN entry_tags et ON et.tag_id = t.id
+          WHERE et.entry_id = ${entry.id}
+          ORDER BY t.name
+        `
+      ).map((row) => row.name);
 
       const entryWithTags: EntryWithTags = { ...entry, tags };
 
