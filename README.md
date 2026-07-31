@@ -39,6 +39,20 @@ This produces a runnable server at `dist/index.js`.
 2. Apply the schema in [`supabase/migrations`](supabase/migrations) — via the Supabase CLI (`supabase db push`) or by running the SQL directly against your database.
 3. Grab a connection string from your project's Database settings — use the **Transaction pooler** connection (port `6543`), not the direct connection (port `5432`). Many hosts (Render included) don't support outbound IPv6, and Supabase's direct connection is IPv6-only in most regions; the pooler is IPv4-compatible and avoids a confusing `ENETUNREACH` at runtime.
 
+### Set up Supabase OAuth (for claude.ai and the mobile app)
+
+claude.ai's custom connectors currently expect OAuth, not a shared bearer token — so Orium supports both: a full Supabase-backed OAuth flow (for claude.ai, mobile, anything that needs real login), and a legacy shared-token path (for clients like Claude Code that let you set a custom header directly).
+
+To enable OAuth on your own Supabase project:
+
+1. **Authentication → OAuth Server** → enable it (currently in beta).
+2. Set **Site URL** to your deployed server's public URL (e.g. `https://your-app.onrender.com`), and **Auth Path** to `/oauth/consent`.
+3. Enable **Allow Dynamic OAuth Apps** — claude.ai self-registers as an OAuth client on first connection (no manual client ID/secret needed) rather than using a pre-registered one.
+4. **Authentication → Sign In / Providers** → disable public sign-up (**"Allow new users to sign up"**). This project intentionally has no per-user data isolation — every valid login sees the same journal — so only you should ever be able to create an account here.
+5. Create your own login: **Authentication → Users → Add user**, using the admin panel directly (not the public sign-up form, which you just disabled).
+
+The login (`/login`) and consent (`/oauth/consent`) pages Supabase redirects to for this flow are served by Orium itself — see [`public/`](public) — since Supabase's OAuth Server doesn't host its own consent UI.
+
 ### Run the server
 
 Orium is an MCP server over **Streamable HTTP**, not stdio — it runs as a long-lived process that your MCP client connects to over the network (locally or remotely), rather than being launched per-client.
@@ -46,16 +60,20 @@ Orium is an MCP server over **Streamable HTTP**, not stdio — it runs as a long
 ```bash
 DATABASE_URL="postgresql://postgres:[password]@[host]:6543/postgres" \
 ORIUM_MCP_TOKEN="pick-a-long-random-secret" \
+SUPABASE_URL="https://<project-ref>.supabase.co" \
+PUBLIC_URL="https://your-app.onrender.com" \
 PORT=3000 \
   npm start
 ```
 
 - `DATABASE_URL` — required, your Postgres connection string.
-- `ORIUM_MCP_TOKEN` — required, a shared secret clients must send as `Authorization: Bearer <token>`. Generate one with `openssl rand -hex 32`.
+- `ORIUM_MCP_TOKEN` — required, a legacy shared secret clients may send as `Authorization: Bearer <token>` instead of OAuth. Generate one with `openssl rand -hex 32`.
+- `SUPABASE_URL` — required, your Supabase project URL — used to validate OAuth access tokens against its JWKS.
+- `PUBLIC_URL` — required, the public URL this server is reachable at — used to advertise the OAuth resource-server metadata clients need for discovery.
 - `PORT` — optional, defaults to `3000`.
 - `GET /health` returns `200 OK` and needs no auth, for use with your host's health checks.
 
-For a server reachable outside your own machine, deploy this process somewhere that runs long-lived Node processes (e.g. Render, Fly.io, Railway), keeping `DATABASE_URL` and `ORIUM_MCP_TOKEN` as secrets there.
+For a server reachable outside your own machine, deploy this process somewhere that runs long-lived Node processes (e.g. Render, Fly.io, Railway), keeping `DATABASE_URL`, `ORIUM_MCP_TOKEN`, and `SUPABASE_URL`/`PUBLIC_URL` as env vars there.
 
 ### Deploy on Render
 
@@ -63,18 +81,20 @@ This repo includes a [`render.yaml`](render.yaml) blueprint:
 
 1. Push your fork to GitHub.
 2. On [Render](https://render.com), **New + → Blueprint**, connect your GitHub account, and select your fork.
-3. Render reads `render.yaml` and prompts you for the two secret env vars (`DATABASE_URL`, `ORIUM_MCP_TOKEN`) — paste in your Supabase pooler connection string and a generated token.
+3. Render reads `render.yaml` and prompts you for the secret env vars (`DATABASE_URL`, `ORIUM_MCP_TOKEN`) — paste in your Supabase pooler connection string and a generated token. Update `SUPABASE_URL` and `PUBLIC_URL` in the blueprint (or the dashboard afterward) to match your own project and deployed URL.
 4. Deploy. The free instance type works, with one caveat: it spins down after 15 minutes of inactivity, so the first request after an idle period will be slow (30-60s) or may time out in your MCP client.
 
 Any other host that runs a persistent Node process works too — the blueprint is just the fastest path.
 
-### Add to Claude Desktop or Claude Code
+### Add to Claude Desktop, claude.ai, or Claude Code
 
-Both accept a remote MCP server by URL. Point either at `http://<host>:<port>/mcp` (or your deployed HTTPS URL) with the bearer token in the `Authorization` header — consult your client's docs for the current syntax for adding a remote/HTTP MCP server, as this is evolving faster than most other parts of the MCP spec.
+- **claude.ai (web and mobile)**: Settings → Connectors → Add custom connector → enter `https://your-app.onrender.com/mcp` as the URL, leave the OAuth Client ID/Secret fields blank. Approving the connection walks you through Supabase login and consent. Once added, it's available from the Claude mobile app too, since connectors are tied to your account, not a device.
+- **Claude Code**: `claude mcp add orium --transport http --header "Authorization: Bearer <ORIUM_MCP_TOKEN>" https://your-app.onrender.com/mcp` — uses the legacy shared-token path.
+- **Claude Desktop**: consult Claude Desktop's current docs for adding a remote/HTTP MCP server — this is evolving faster than most other parts of the MCP spec.
 
 ### Where your data goes
 
-Entries live in the Postgres database at `DATABASE_URL`. The same database — and the same running server — is reachable from any client that has the URL and the bearer token, from any machine.
+Entries live in the Postgres database at `DATABASE_URL`. The same database — and the same running server — is reachable from any client that can authenticate, whether via OAuth login or the legacy shared token, from any machine.
 
 ## Usage examples
 
@@ -151,6 +171,9 @@ Three tables, defined in [`supabase/migrations`](supabase/migrations):
 ```
 supabase/
   migrations/          # schema (source of truth), applied via the Supabase CLI/MCP
+public/
+  login.html           # Supabase Auth login page (for the OAuth consent flow)
+  oauth-consent.html    # OAuth authorization consent screen
 src/
   db/
     connection.ts       # opens the Postgres connection
@@ -172,7 +195,8 @@ src/
     getStreak.ts
     getSummary.ts
     *.test.ts          # one test file per tool
-  index.ts             # MCP server entry point; registers all tools
+  registerTools.ts     # registers all 10 tools on an McpServer instance
+  index.ts             # HTTP server entry point: transport, auth, OAuth metadata
 ```
 
 ## Contributing
