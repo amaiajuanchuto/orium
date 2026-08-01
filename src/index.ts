@@ -1,9 +1,9 @@
 /**
  * Orium MCP server entry point. Opens the Postgres database and serves every
- * journaling tool over the MCP Streamable HTTP transport, protected by a
- * shared bearer token.
+ * journaling tool over the MCP Streamable HTTP transport, protected by
+ * Supabase OAuth.
  */
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type NextFunction, type Request, type Response } from "express";
@@ -22,11 +22,6 @@ import { registerAllTools } from "./registerTools.js";
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is required");
-}
-
-const ORIUM_MCP_TOKEN = process.env.ORIUM_MCP_TOKEN;
-if (!ORIUM_MCP_TOKEN) {
-  throw new Error("ORIUM_MCP_TOKEN environment variable is required");
 }
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -70,18 +65,6 @@ async function fetchSupabaseOAuthMetadata(): Promise<OAuthMetadata> {
 
 const oauthMetadata = await fetchSupabaseOAuthMetadata();
 
-/**
- * Constant-time comparison of two strings, safe for comparing bearer
- * tokens without leaking timing information about how much of the token
- * matched.
- */
-function safeCompare(a: string, b: string): boolean {
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
-}
-
 // Verifies access tokens issued by Supabase's OAuth 2.1 Server against its
 // published JWKS. `createRemoteJWKSet` fetches and caches the signing keys
 // automatically, refetching if a token references an unrecognized key id.
@@ -102,16 +85,13 @@ async function isValidSupabaseToken(token: string): Promise<boolean> {
   }
 }
 
-// Accepts either the legacy shared bearer token or a valid Supabase OAuth
-// access token, so existing Claude Code connections keep working while
-// claude.ai (and anything else that needs real OAuth) uses Supabase login.
 async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
 
   if (header?.startsWith("Bearer ")) {
     const token = header.slice("Bearer ".length);
 
-    if (safeCompare(header, `Bearer ${ORIUM_MCP_TOKEN}`) || (await isValidSupabaseToken(token))) {
+    if (await isValidSupabaseToken(token)) {
       next();
       return;
     }
