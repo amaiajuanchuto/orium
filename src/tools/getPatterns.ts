@@ -41,9 +41,10 @@ function round(value: number): number {
  * `MIN_SAMPLE_SIZE` entries.
  *
  * @param sql - Open database connection.
+ * @param userId - The authenticated user's id.
  * @returns The sleep pattern, or null if fewer than two buckets qualify.
  */
-async function getSleepPattern(sql: postgres.Sql): Promise<Pattern | null> {
+async function getSleepPattern(sql: postgres.Sql, userId: string): Promise<Pattern | null> {
   const rows = await sql<{ bucket: string; avg_mood: number; count: number }[]>`
     SELECT
       CASE
@@ -55,7 +56,7 @@ async function getSleepPattern(sql: postgres.Sql): Promise<Pattern | null> {
       AVG(mood_rating) AS avg_mood,
       COUNT(*)::int AS count
     FROM entries
-    WHERE sleep_hours IS NOT NULL
+    WHERE user_id = ${userId} AND sleep_hours IS NOT NULL
     GROUP BY bucket
     HAVING COUNT(*) >= ${MIN_SAMPLE_SIZE}
   `;
@@ -88,12 +89,14 @@ async function getSleepPattern(sql: postgres.Sql): Promise<Pattern | null> {
  * worst day, if each has at least `MIN_SAMPLE_SIZE` entries.
  *
  * @param sql - Open database connection.
+ * @param userId - The authenticated user's id.
  * @returns The day-of-week pattern, or null if fewer than two days qualify.
  */
-async function getDayOfWeekPattern(sql: postgres.Sql): Promise<Pattern | null> {
+async function getDayOfWeekPattern(sql: postgres.Sql, userId: string): Promise<Pattern | null> {
   const rows = await sql<{ dow: number; avg_mood: number; count: number }[]>`
     SELECT EXTRACT(DOW FROM date)::int AS dow, AVG(mood_rating) AS avg_mood, COUNT(*)::int AS count
     FROM entries
+    WHERE user_id = ${userId}
     GROUP BY dow
     HAVING COUNT(*) >= ${MIN_SAMPLE_SIZE}
   `;
@@ -127,12 +130,13 @@ async function getDayOfWeekPattern(sql: postgres.Sql): Promise<Pattern | null> {
  * every tag with at least `MIN_SAMPLE_SIZE` tagged entries.
  *
  * @param sql - Open database connection.
+ * @param userId - The authenticated user's id.
  * @returns One pattern per qualifying tag; empty if there are no entries yet.
  */
-async function getTagPatterns(sql: postgres.Sql): Promise<Pattern[]> {
-  const [overall] = await sql<
-    { avg_mood: number | null }[]
-  >`SELECT AVG(mood_rating) AS avg_mood FROM entries`;
+async function getTagPatterns(sql: postgres.Sql, userId: string): Promise<Pattern[]> {
+  const [overall] = await sql<{ avg_mood: number | null }[]>`
+    SELECT AVG(mood_rating) AS avg_mood FROM entries WHERE user_id = ${userId}
+  `;
 
   if (overall!.avg_mood === null) return [];
 
@@ -143,6 +147,7 @@ async function getTagPatterns(sql: postgres.Sql): Promise<Pattern[]> {
     FROM entries e
     JOIN entry_tags et ON et.entry_id = e.id
     JOIN tags t ON t.id = et.tag_id
+    WHERE e.user_id = ${userId}
     GROUP BY t.name
     HAVING COUNT(*) >= ${MIN_SAMPLE_SIZE}
   `;
@@ -174,7 +179,11 @@ async function getTagPatterns(sql: postgres.Sql): Promise<Pattern[]> {
  * each with numbers and a tip — or a friendly message if there isn't
  * enough data yet.
  */
-export function registerGetPatternsTool(server: McpServer, sql: postgres.Sql): void {
+export function registerGetPatternsTool(
+  server: McpServer,
+  sql: postgres.Sql,
+  userId: string,
+): void {
   server.registerTool(
     "get_patterns",
     {
@@ -185,9 +194,9 @@ export function registerGetPatternsTool(server: McpServer, sql: postgres.Sql): v
     },
     async () => {
       const candidates: Pattern[] = [
-        await getSleepPattern(sql),
-        await getDayOfWeekPattern(sql),
-        ...(await getTagPatterns(sql)),
+        await getSleepPattern(sql, userId),
+        await getDayOfWeekPattern(sql, userId),
+        ...(await getTagPatterns(sql, userId)),
       ].filter((pattern): pattern is Pattern => pattern !== null);
 
       if (candidates.length === 0) {

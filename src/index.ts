@@ -19,6 +19,16 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createDatabase } from "./db/connection.js";
 import { registerAllTools } from "./registerTools.js";
 
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      /** The authenticated Supabase user id, set by requireAuth. */
+      userId?: string;
+    }
+  }
+}
+
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is required");
@@ -73,15 +83,19 @@ const supabaseJwks = createRemoteJWKSet(
 );
 const SUPABASE_ISSUER = `${SUPABASE_URL}/auth/v1`;
 
-async function isValidSupabaseToken(token: string): Promise<boolean> {
+/**
+ * Verifies a Supabase-issued access token and returns the authenticated
+ * user's id (the JWT's `sub` claim), or null if the token is invalid.
+ */
+async function verifySupabaseToken(token: string): Promise<string | null> {
   try {
-    await jwtVerify(token, supabaseJwks, {
+    const { payload } = await jwtVerify(token, supabaseJwks, {
       issuer: SUPABASE_ISSUER,
       audience: "authenticated",
     });
-    return true;
+    return typeof payload.sub === "string" ? payload.sub : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -90,8 +104,10 @@ async function requireAuth(req: Request, res: Response, next: NextFunction): Pro
 
   if (header?.startsWith("Bearer ")) {
     const token = header.slice("Bearer ".length);
+    const userId = await verifySupabaseToken(token);
 
-    if (await isValidSupabaseToken(token)) {
+    if (userId) {
+      req.userId = userId;
       next();
       return;
     }
@@ -125,6 +141,10 @@ app.post("/mcp", express.json(), async (req, res) => {
   if (sessionId && transports[sessionId]) {
     transport = transports[sessionId];
   } else if (!sessionId && isInitializeRequest(req.body)) {
+    // requireAuth always runs first and rejects unauthenticated requests, so
+    // userId is guaranteed to be set here.
+    const userId = req.userId!;
+
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (newSessionId) => {
@@ -139,7 +159,7 @@ app.post("/mcp", express.json(), async (req, res) => {
     };
 
     const server = new McpServer({ name: "orium-mcp", version: "0.1.0" });
-    registerAllTools(server, sql);
+    registerAllTools(server, sql, userId);
     await server.connect(transport);
   } else {
     res.status(400).json({

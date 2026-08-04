@@ -22,14 +22,18 @@ const updateEntryInputSchema = {
  * Fetches an entry by id along with its linked tag names.
  *
  * @param sql - Open database connection.
- * @param id - Id of the entry to fetch. Assumed to exist.
+ * @param id - Id of the entry to fetch. Assumed to exist and belong to `userId`.
+ * @param userId - The authenticated user's id.
  * @returns The entry row with a `tags` array of tag names.
  */
 async function getEntryWithTags(
   sql: postgres.Sql | postgres.TransactionSql,
   id: number,
+  userId: string,
 ): Promise<EntryWithTags> {
-  const [entry] = await sql<Entry[]>`SELECT * FROM entries WHERE id = ${id}`;
+  const [entry] = await sql<
+    Entry[]
+  >`SELECT * FROM entries WHERE id = ${id} AND user_id = ${userId}`;
   const tags = (
     await sql<{ name: string }[]>`
       SELECT t.name FROM tags t
@@ -49,7 +53,11 @@ async function getEntryWithTags(
  * replaces the entry's existing tags. Returns the full updated entry with
  * its tags, or an error if no entry exists with the given id.
  */
-export function registerUpdateEntryTool(server: McpServer, sql: postgres.Sql): void {
+export function registerUpdateEntryTool(
+  server: McpServer,
+  sql: postgres.Sql,
+  userId: string,
+): void {
   server.registerTool(
     "update_entry",
     {
@@ -60,7 +68,7 @@ export function registerUpdateEntryTool(server: McpServer, sql: postgres.Sql): v
       inputSchema: updateEntryInputSchema,
     },
     async ({ id, date, mood_rating, energy_level, sleep_hours, notes, tags }) => {
-      const [exists] = await sql`SELECT 1 FROM entries WHERE id = ${id}`;
+      const [exists] = await sql`SELECT 1 FROM entries WHERE id = ${id} AND user_id = ${userId}`;
       if (!exists) {
         return {
           content: [{ type: "text", text: `No entry found with id ${id}.` }],
@@ -77,12 +85,12 @@ export function registerUpdateEntryTool(server: McpServer, sql: postgres.Sql): v
         if (notes !== undefined) updates.notes = notes;
 
         if (Object.keys(updates).length > 0) {
-          await tx`UPDATE entries SET ${tx(updates)} WHERE id = ${id}`;
+          await tx`UPDATE entries SET ${tx(updates)} WHERE id = ${id} AND user_id = ${userId}`;
         } else {
           // No scalar fields changed (e.g. a tags-only update) — still touch
           // the row so the updated_at trigger fires, matching the tool's
           // documented behavior of always refreshing updated_at.
-          await tx`UPDATE entries SET updated_at = DEFAULT WHERE id = ${id}`;
+          await tx`UPDATE entries SET updated_at = DEFAULT WHERE id = ${id} AND user_id = ${userId}`;
         }
 
         if (tags !== undefined) {
@@ -98,7 +106,7 @@ export function registerUpdateEntryTool(server: McpServer, sql: postgres.Sql): v
           }
         }
 
-        return getEntryWithTags(tx, id);
+        return getEntryWithTags(tx, id, userId);
       });
 
       return {

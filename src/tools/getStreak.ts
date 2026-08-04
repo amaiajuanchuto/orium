@@ -61,7 +61,7 @@ function buildMessage(
  * daily-logging streak (broken by any missed calendar day), the longest
  * streak ever, and the next milestone with a motivational message.
  */
-export function registerGetStreakTool(server: McpServer, sql: postgres.Sql): void {
+export function registerGetStreakTool(server: McpServer, sql: postgres.Sql, userId: string): void {
   server.registerTool(
     "get_streak",
     {
@@ -72,9 +72,9 @@ export function registerGetStreakTool(server: McpServer, sql: postgres.Sql): voi
     },
     async () => {
       const dates = (
-        await sql<
-          { date: string }[]
-        >`SELECT DISTINCT date FROM entries ORDER BY date DESC`
+        await sql<{ date: string }[]>`
+          SELECT DISTINCT date FROM entries WHERE user_id = ${userId} ORDER BY date DESC
+        `
       ).map((row) => row.date);
 
       if (dates.length === 0) {

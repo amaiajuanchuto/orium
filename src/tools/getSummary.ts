@@ -45,11 +45,17 @@ interface TagImpact {
  * Averages mood, energy, and sleep over an inclusive date range.
  *
  * @param sql - Open database connection.
+ * @param userId - The authenticated user's id.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @returns Rounded averages and the number of entries the range covered.
  */
-async function getAverages(sql: postgres.Sql, start: string, end: string): Promise<Averages> {
+async function getAverages(
+  sql: postgres.Sql,
+  userId: string,
+  start: string,
+  end: string,
+): Promise<Averages> {
   const [row] = await sql<
     {
       mood_rating: number | null;
@@ -63,7 +69,7 @@ async function getAverages(sql: postgres.Sql, start: string, end: string): Promi
            AVG(sleep_hours) AS sleep_hours,
            COUNT(*)::int AS entry_count
     FROM entries
-    WHERE date BETWEEN ${start} AND ${end}
+    WHERE user_id = ${userId} AND date BETWEEN ${start} AND ${end}
   `;
 
   return {
@@ -94,14 +100,20 @@ function getDirection(current: number, previous: number | null): Direction {
  * Finds the single highest-mood entry within an inclusive date range.
  *
  * @param sql - Open database connection.
+ * @param userId - The authenticated user's id.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @returns The date and mood rating of the best-rated entry.
  */
-async function getBestDay(sql: postgres.Sql, start: string, end: string): Promise<DayEntry> {
+async function getBestDay(
+  sql: postgres.Sql,
+  userId: string,
+  start: string,
+  end: string,
+): Promise<DayEntry> {
   const [row] = await sql<DayEntry[]>`
     SELECT date, mood_rating FROM entries
-    WHERE date BETWEEN ${start} AND ${end}
+    WHERE user_id = ${userId} AND date BETWEEN ${start} AND ${end}
     ORDER BY mood_rating DESC, date ASC
     LIMIT 1
   `;
@@ -112,14 +124,20 @@ async function getBestDay(sql: postgres.Sql, start: string, end: string): Promis
  * Finds the single lowest-mood entry within an inclusive date range.
  *
  * @param sql - Open database connection.
+ * @param userId - The authenticated user's id.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @returns The date and mood rating of the worst-rated entry.
  */
-async function getWorstDay(sql: postgres.Sql, start: string, end: string): Promise<DayEntry> {
+async function getWorstDay(
+  sql: postgres.Sql,
+  userId: string,
+  start: string,
+  end: string,
+): Promise<DayEntry> {
   const [row] = await sql<DayEntry[]>`
     SELECT date, mood_rating FROM entries
-    WHERE date BETWEEN ${start} AND ${end}
+    WHERE user_id = ${userId} AND date BETWEEN ${start} AND ${end}
     ORDER BY mood_rating ASC, date ASC
     LIMIT 1
   `;
@@ -130,17 +148,23 @@ async function getWorstDay(sql: postgres.Sql, start: string, end: string): Promi
  * Finds the 5 most-used tags within an inclusive date range.
  *
  * @param sql - Open database connection.
+ * @param userId - The authenticated user's id.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @returns Up to 5 tags with their usage counts, most-used first.
  */
-async function getTopTags(sql: postgres.Sql, start: string, end: string): Promise<TagCount[]> {
+async function getTopTags(
+  sql: postgres.Sql,
+  userId: string,
+  start: string,
+  end: string,
+): Promise<TagCount[]> {
   return sql<TagCount[]>`
     SELECT t.name AS tag, COUNT(*)::int AS count
     FROM entries e
     JOIN entry_tags et ON et.entry_id = e.id
     JOIN tags t ON t.id = et.tag_id
-    WHERE e.date BETWEEN ${start} AND ${end}
+    WHERE e.user_id = ${userId} AND e.date BETWEEN ${start} AND ${end}
     GROUP BY t.name
     ORDER BY count DESC, t.name ASC
     LIMIT 5
@@ -153,6 +177,7 @@ async function getTopTags(sql: postgres.Sql, start: string, end: string): Promis
  * minus the period's overall average mood.
  *
  * @param sql - Open database connection.
+ * @param userId - The authenticated user's id.
  * @param start - Range start date (YYYY-MM-DD), inclusive.
  * @param end - Range end date (YYYY-MM-DD), inclusive.
  * @param overallMood - The period's overall average mood, for comparison.
@@ -160,6 +185,7 @@ async function getTopTags(sql: postgres.Sql, start: string, end: string): Promis
  */
 async function getTagImpact(
   sql: postgres.Sql,
+  userId: string,
   start: string,
   end: string,
   overallMood: number,
@@ -169,7 +195,7 @@ async function getTagImpact(
     FROM entries e
     JOIN entry_tags et ON et.entry_id = e.id
     JOIN tags t ON t.id = et.tag_id
-    WHERE e.date BETWEEN ${start} AND ${end}
+    WHERE e.user_id = ${userId} AND e.date BETWEEN ${start} AND ${end}
     GROUP BY t.name
   `;
 
@@ -252,7 +278,11 @@ function buildMessage(
  * combining averages, trend, best/worst days, top tags, tag impact, and
  * streak into one data-driven summary with a personalized message.
  */
-export function registerGetSummaryTool(server: McpServer, sql: postgres.Sql): void {
+export function registerGetSummaryTool(
+  server: McpServer,
+  sql: postgres.Sql,
+  userId: string,
+): void {
   server.registerTool(
     "get_summary",
     {
@@ -271,7 +301,7 @@ export function registerGetSummaryTool(server: McpServer, sql: postgres.Sql): vo
       const previousEnd = addDays(currentStart, -1);
       const previousStart = addDays(previousEnd, -(periodDays - 1));
 
-      const averages = await getAverages(sql, currentStart, currentEnd);
+      const averages = await getAverages(sql, userId, currentStart, currentEnd);
 
       if (averages.entry_count === 0) {
         return {
@@ -284,27 +314,28 @@ export function registerGetSummaryTool(server: McpServer, sql: postgres.Sql): vo
         };
       }
 
-      const previousAverages = await getAverages(sql, previousStart, previousEnd);
+      const previousAverages = await getAverages(sql, userId, previousStart, previousEnd);
       const previousMood =
         previousAverages.entry_count > 0 ? previousAverages.mood_rating : null;
       const trendDirection = getDirection(averages.mood_rating!, previousMood);
       const trendDifference =
         previousMood === null ? null : round(averages.mood_rating! - previousMood);
 
-      const bestDay = await getBestDay(sql, currentStart, currentEnd);
-      const worstDay = await getWorstDay(sql, currentStart, currentEnd);
-      const topTags = await getTopTags(sql, currentStart, currentEnd);
+      const bestDay = await getBestDay(sql, userId, currentStart, currentEnd);
+      const worstDay = await getWorstDay(sql, userId, currentStart, currentEnd);
+      const topTags = await getTopTags(sql, userId, currentStart, currentEnd);
       const tagImpact = await getTagImpact(
         sql,
+        userId,
         currentStart,
         currentEnd,
         averages.mood_rating!,
       );
 
       const allDates = (
-        await sql<
-          { date: string }[]
-        >`SELECT DISTINCT date FROM entries ORDER BY date DESC`
+        await sql<{ date: string }[]>`
+          SELECT DISTINCT date FROM entries WHERE user_id = ${userId} ORDER BY date DESC
+        `
       ).map((row) => row.date);
       const { streak: currentStreak } = computeCurrentStreak(new Set(allDates), today);
 

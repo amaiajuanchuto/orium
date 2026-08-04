@@ -36,6 +36,7 @@ type Direction = "up" | "down" | "stable";
  */
 async function getPeriodAverages(
   sql: postgres.Sql,
+  userId: string,
   start: string,
   end: string,
 ): Promise<PeriodAverages> {
@@ -52,7 +53,7 @@ async function getPeriodAverages(
            AVG(sleep_hours) AS sleep_hours,
            COUNT(*)::int AS entry_count
     FROM entries
-    WHERE date BETWEEN ${start} AND ${end}
+    WHERE user_id = ${userId} AND date BETWEEN ${start} AND ${end}
   `;
 
   return {
@@ -87,7 +88,11 @@ function getDirection(current: number | null, previous: number | null): Directio
  * energy, and sleep over the last 7/30/90 days against the equivalent
  * prior period.
  */
-export function registerGetMoodTrendsTool(server: McpServer, sql: postgres.Sql): void {
+export function registerGetMoodTrendsTool(
+  server: McpServer,
+  sql: postgres.Sql,
+  userId: string,
+): void {
   server.registerTool(
     "get_mood_trends",
     {
@@ -106,7 +111,7 @@ export function registerGetMoodTrendsTool(server: McpServer, sql: postgres.Sql):
       const previousEnd = addDays(currentStart, -1);
       const previousStart = addDays(previousEnd, -(periodDays - 1));
 
-      const current = await getPeriodAverages(sql, currentStart, currentEnd);
+      const current = await getPeriodAverages(sql, userId, currentStart, currentEnd);
 
       if (current.entry_count === 0) {
         return {
@@ -119,7 +124,7 @@ export function registerGetMoodTrendsTool(server: McpServer, sql: postgres.Sql):
         };
       }
 
-      const previous = await getPeriodAverages(sql, previousStart, previousEnd);
+      const previous = await getPeriodAverages(sql, userId, previousStart, previousEnd);
 
       const result = {
         period,

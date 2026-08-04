@@ -22,7 +22,11 @@ const createEntryInputSchema = {
  * (optionally linking it to one or more tags, created on demand) and
  * returns the persisted row.
  */
-export function registerCreateEntryTool(server: McpServer, sql: postgres.Sql): void {
+export function registerCreateEntryTool(
+  server: McpServer,
+  sql: postgres.Sql,
+  userId: string,
+): void {
   server.registerTool(
     "create_entry",
     {
@@ -34,8 +38,8 @@ export function registerCreateEntryTool(server: McpServer, sql: postgres.Sql): v
     async ({ date, mood_rating, energy_level, sleep_hours, notes, tags }) => {
       const entry = await sql.begin(async (tx) => {
         const [row] = await tx<Entry[]>`
-          INSERT INTO entries (date, mood_rating, energy_level, sleep_hours, notes)
-          VALUES (${date}, ${mood_rating}, ${energy_level}, ${sleep_hours ?? null}, ${notes ?? null})
+          INSERT INTO entries (user_id, date, mood_rating, energy_level, sleep_hours, notes)
+          VALUES (${userId}, ${date}, ${mood_rating}, ${energy_level}, ${sleep_hours ?? null}, ${notes ?? null})
           RETURNING *
         `;
         const entryId = row!.id;

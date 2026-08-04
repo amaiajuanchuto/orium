@@ -29,7 +29,11 @@ function escapeLikePattern(value: string): string {
  * search for `keyword` across entry notes, returning matches (with their
  * tags) ordered by date descending, capped at 50 results.
  */
-export function registerSearchEntriesTool(server: McpServer, sql: postgres.Sql): void {
+export function registerSearchEntriesTool(
+  server: McpServer,
+  sql: postgres.Sql,
+  userId: string,
+): void {
   server.registerTool(
     "search_entries",
     {
@@ -42,7 +46,8 @@ export function registerSearchEntriesTool(server: McpServer, sql: postgres.Sql):
 
       const entries = await sql<Entry[]>`
         SELECT * FROM entries
-        WHERE notes IS NOT NULL AND LOWER(notes) LIKE LOWER(${pattern}) ESCAPE '\\'
+        WHERE user_id = ${userId}
+          AND notes IS NOT NULL AND LOWER(notes) LIKE LOWER(${pattern}) ESCAPE '\\'
         ORDER BY date DESC, id DESC
         LIMIT ${MAX_RESULTS}
       `;

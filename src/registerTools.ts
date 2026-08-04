@@ -15,20 +15,23 @@ import { registerSearchEntriesTool } from "./tools/searchEntries.js";
 import { registerUpdateEntryTool } from "./tools/updateEntry.js";
 
 /**
- * Registers all 10 journaling tools on `server`, backed by `sql`.
+ * Registers all 10 journaling tools on `server`, backed by `sql` and scoped
+ * to `userId` (the authenticated Supabase user this session belongs to).
  *
  * @param server - The MCP server to register tools on.
  * @param sql - Open database connection shared across tool calls.
+ * @param userId - The authenticated user's id; every tool scopes its
+ *   queries to this user's own entries.
  */
-export function registerAllTools(server: McpServer, sql: postgres.Sql): void {
-  registerCreateEntryTool(server, sql);
-  registerDeleteEntryTool(server, sql);
-  registerGetMoodTrendsTool(server, sql);
-  registerGetPatternsTool(server, sql);
-  registerGetStreakTool(server, sql);
-  registerGetSummaryTool(server, sql);
-  registerGetTodayTool(server, sql);
-  registerListEntriesTool(server, sql);
-  registerSearchEntriesTool(server, sql);
-  registerUpdateEntryTool(server, sql);
+export function registerAllTools(server: McpServer, sql: postgres.Sql, userId: string): void {
+  registerCreateEntryTool(server, sql, userId);
+  registerDeleteEntryTool(server, sql, userId);
+  registerGetMoodTrendsTool(server, sql, userId);
+  registerGetPatternsTool(server, sql, userId);
+  registerGetStreakTool(server, sql, userId);
+  registerGetSummaryTool(server, sql, userId);
+  registerGetTodayTool(server, sql, userId);
+  registerListEntriesTool(server, sql, userId);
+  registerSearchEntriesTool(server, sql, userId);
+  registerUpdateEntryTool(server, sql, userId);
 }

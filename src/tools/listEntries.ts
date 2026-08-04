@@ -22,7 +22,11 @@ const listEntriesInputSchema = {
  * recent first) filtered by date range, mood/energy range, and/or tag,
  * each annotated with its linked tag names.
  */
-export function registerListEntriesTool(server: McpServer, sql: postgres.Sql): void {
+export function registerListEntriesTool(
+  server: McpServer,
+  sql: postgres.Sql,
+  userId: string,
+): void {
   server.registerTool(
     "list_entries",
     {
@@ -44,7 +48,8 @@ export function registerListEntriesTool(server: McpServer, sql: postgres.Sql): v
     }) => {
       const entries = await sql<Entry[]>`
         SELECT e.* FROM entries e
-        WHERE (${from ?? null}::date IS NULL OR e.date >= ${from ?? null})
+        WHERE e.user_id = ${userId}
+          AND (${from ?? null}::date IS NULL OR e.date >= ${from ?? null})
           AND (${to ?? null}::date IS NULL OR e.date <= ${to ?? null})
           AND (${min_mood_rating ?? null}::int IS NULL OR e.mood_rating >= ${min_mood_rating ?? null})
           AND (${max_mood_rating ?? null}::int IS NULL OR e.mood_rating <= ${max_mood_rating ?? null})

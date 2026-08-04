@@ -15,7 +15,11 @@ const deleteEntryInputSchema = {
  * Its tag links in entry_tags are removed automatically via ON DELETE
  * CASCADE. Returns an error if no entry exists with the given id.
  */
-export function registerDeleteEntryTool(server: McpServer, sql: postgres.Sql): void {
+export function registerDeleteEntryTool(
+  server: McpServer,
+  sql: postgres.Sql,
+  userId: string,
+): void {
   server.registerTool(
     "delete_entry",
     {
@@ -28,7 +32,9 @@ export function registerDeleteEntryTool(server: McpServer, sql: postgres.Sql): v
       },
     },
     async ({ id }) => {
-      const [entry] = await sql<Entry[]>`SELECT * FROM entries WHERE id = ${id}`;
+      const [entry] = await sql<
+        Entry[]
+      >`SELECT * FROM entries WHERE id = ${id} AND user_id = ${userId}`;
 
       if (!entry) {
         return {
@@ -37,7 +43,7 @@ export function registerDeleteEntryTool(server: McpServer, sql: postgres.Sql): v
         };
       }
 
-      await sql`DELETE FROM entries WHERE id = ${id}`;
+      await sql`DELETE FROM entries WHERE id = ${id} AND user_id = ${userId}`;
 
       return {
         content: [

@@ -10,7 +10,7 @@ import type { Entry, EntryWithTags } from "../db/types.js";
  * today's date (based on the system clock) and returns it with its
  * linked tags, or a friendly prompt if no entry has been logged yet.
  */
-export function registerGetTodayTool(server: McpServer, sql: postgres.Sql): void {
+export function registerGetTodayTool(server: McpServer, sql: postgres.Sql, userId: string): void {
   server.registerTool(
     "get_today",
     {
@@ -20,7 +20,9 @@ export function registerGetTodayTool(server: McpServer, sql: postgres.Sql): void
     async () => {
       const today = new Date().toISOString().slice(0, 10);
 
-      const [entry] = await sql<Entry[]>`SELECT * FROM entries WHERE date = ${today}`;
+      const [entry] = await sql<
+        Entry[]
+      >`SELECT * FROM entries WHERE date = ${today} AND user_id = ${userId}`;
 
       if (!entry) {
         return {

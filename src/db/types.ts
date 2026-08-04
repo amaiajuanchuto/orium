@@ -6,6 +6,7 @@ export const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export interface Entry {
   id: number;
+  user_id: string;
   date: string;
   mood_rating: number;
   energy_level: number;
