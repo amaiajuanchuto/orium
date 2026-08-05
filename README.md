@@ -1,6 +1,6 @@
 # Orium 🥝
 
-**Orium is an MCP server for mental health journaling.** Track your mood, energy, sleep, and thoughts by just talking to Claude; no app to open, no form to fill out. Entries are stored in a Postgres database (Supabase), so your journal persists across machines and sessions.
+**Orium is an MCP server for mental health journaling.** Track your mood, energy, sleep, and thoughts by just talking to Claude; no app to open, no form to fill out. Entries are stored in a Postgres database (Supabase), so your journal persists across machines and sessions. Multiple people can use the same deployment — each account's entries are private to them.
 
 ```
 You:    Log today — mood 7, energy 6, slept 7.5 hours, feeling good after the gym
@@ -48,8 +48,8 @@ To enable OAuth on your own Supabase project:
 1. **Authentication → OAuth Server** → enable it (currently in beta).
 2. Set **Site URL** to your deployed server's public URL (e.g. `https://your-app.onrender.com`), and **Auth Path** to `/oauth/consent`.
 3. Enable **Allow Dynamic OAuth Apps** — claude.ai self-registers as an OAuth client on first connection (no manual client ID/secret needed) rather than using a pre-registered one.
-4. **Authentication → Sign In / Providers** → disable public sign-up (**"Allow new users to sign up"**). This project intentionally has no per-user data isolation — every valid login sees the same journal — so only you should ever be able to create an account here.
-5. Create your own login: **Authentication → Users → Add user**, using the admin panel directly (not the public sign-up form, which you just disabled).
+4. Decide whether to allow public sign-up (**Authentication → Sign In / Providers → "Allow new users to sign up"**). Each account's journal is private (enforced by `user_id` scoping and Postgres Row Level Security), so multiple people can safely share one deployment — leave sign-up on if you want that, or turn it off and create accounts yourself via **Authentication → Users → Add user** if you'd rather control who can join.
+5. Create your own login the same way (**Authentication → Users → Add user**) if sign-up is off.
 
 The login (`/login`) and consent (`/oauth/consent`) pages Supabase redirects to for this flow are served by Orium itself — see [`public/`](public) — since Supabase's OAuth Server doesn't host its own consent UI.
 
@@ -146,8 +146,8 @@ Once connected, just talk to Claude naturally; it picks the right tool for you.
 
 Three tables, defined in [`supabase/migrations`](supabase/migrations):
 
-- **entries** — one row per journal entry (`date`, `mood_rating` and `energy_level` 1–10, `sleep_hours`, `notes`, timestamps; `updated_at` is refreshed automatically by a trigger)
-- **tags** — reusable tag names
+- **entries** — one row per journal entry (`user_id`, `date`, `mood_rating` and `energy_level` 1–10, `sleep_hours`, `notes`, timestamps; `updated_at` is refreshed automatically by a trigger). Every query is scoped to the authenticated user's own `user_id`, and Row Level Security policies enforce the same boundary at the database level.
+- **tags** — a shared, global vocabulary (not per-user) — seeded with ~80 common journaling tags, and anyone can add more on the fly, same as before
 - **entry_tags** — many-to-many join between entries and tags, with cascading deletes
 
 ## Scripts
