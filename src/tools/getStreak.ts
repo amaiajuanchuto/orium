@@ -61,7 +61,11 @@ function buildMessage(
  * daily-logging streak (broken by any missed calendar day), the longest
  * streak ever, and the next milestone with a motivational message.
  */
-export function registerGetStreakTool(server: McpServer, sql: postgres.Sql, userId: string): void {
+export function registerGetStreakTool(
+  server: McpServer,
+  sql: postgres.Sql,
+  userId: string,
+): void {
   server.registerTool(
     "get_streak",
     {

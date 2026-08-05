@@ -23,7 +23,11 @@ import { registerUpdateEntryTool } from "./tools/updateEntry.js";
  * @param userId - The authenticated user's id; every tool scopes its
  *   queries to this user's own entries.
  */
-export function registerAllTools(server: McpServer, sql: postgres.Sql, userId: string): void {
+export function registerAllTools(
+  server: McpServer,
+  sql: postgres.Sql,
+  userId: string,
+): void {
   registerCreateEntryTool(server, sql, userId);
   registerDeleteEntryTool(server, sql, userId);
   registerGetMoodTrendsTool(server, sql, userId);

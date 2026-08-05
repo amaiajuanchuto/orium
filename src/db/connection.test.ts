@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createDatabase } from "./connection.js";
+import { ensureTestUsers, TEST_USER_ID } from "./testUser.js";
 
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
@@ -10,6 +11,7 @@ describe("createDatabase", () => {
 
   beforeEach(async () => {
     await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    await ensureTestUsers(sql);
   });
 
   afterAll(async () => {
@@ -23,27 +25,31 @@ describe("createDatabase", () => {
       ORDER BY table_name
     `;
 
-    expect(tables.map((row) => row.table_name)).toEqual(["entries", "entry_tags", "tags"]);
+    expect(tables.map((row) => row.table_name)).toEqual([
+      "entries",
+      "entry_tags",
+      "tags",
+    ]);
   });
 
   it("enforces the mood_rating and energy_level check constraints", async () => {
     await expect(
-      sql`INSERT INTO entries (date, mood_rating, energy_level) VALUES ('2026-07-23', 11, 5)`,
+      sql`INSERT INTO entries (user_id, date, mood_rating, energy_level) VALUES (${TEST_USER_ID}, '2026-07-23', 11, 5)`,
     ).rejects.toThrow();
 
     await expect(
-      sql`INSERT INTO entries (date, mood_rating, energy_level) VALUES ('2026-07-23', 5, 0)`,
+      sql`INSERT INTO entries (user_id, date, mood_rating, energy_level) VALUES (${TEST_USER_ID}, '2026-07-23', 5, 0)`,
     ).rejects.toThrow();
   });
 
   it("supports linking entries to tags via entry_tags", async () => {
     const [entry] = await sql<{ id: number }[]>`
-      INSERT INTO entries (date, mood_rating, energy_level, sleep_hours, notes)
-      VALUES ('2026-07-23', 7, 6, 7.5, 'Felt good today')
+      INSERT INTO entries (user_id, date, mood_rating, energy_level, sleep_hours, notes)
+      VALUES (${TEST_USER_ID}, '2026-07-23', 7, 6, 7.5, 'Felt good today')
       RETURNING id
     `;
     const [tag] = await sql<{ id: number }[]>`
-      INSERT INTO tags (name) VALUES ('grateful') RETURNING id
+      INSERT INTO tags (name) VALUES ('a-connection-test-tag') RETURNING id
     `;
 
     await sql`INSERT INTO entry_tags (entry_id, tag_id) VALUES (${entry!.id}, ${tag!.id})`;
@@ -54,17 +60,17 @@ describe("createDatabase", () => {
       WHERE et.entry_id = ${entry!.id}
     `;
 
-    expect(tagsForEntry.map((row) => row.name)).toEqual(["grateful"]);
+    expect(tagsForEntry.map((row) => row.name)).toEqual(["a-connection-test-tag"]);
   });
 
   it("cascades deletes from entries to entry_tags", async () => {
     const [entry] = await sql<{ id: number }[]>`
-      INSERT INTO entries (date, mood_rating, energy_level)
-      VALUES ('2026-07-23', 5, 5)
+      INSERT INTO entries (user_id, date, mood_rating, energy_level)
+      VALUES (${TEST_USER_ID}, '2026-07-23', 5, 5)
       RETURNING id
     `;
     const [tag] = await sql<{ id: number }[]>`
-      INSERT INTO tags (name) VALUES ('tired') RETURNING id
+      INSERT INTO tags (name) VALUES ('another-connection-test-tag') RETURNING id
     `;
 
     await sql`INSERT INTO entry_tags (entry_id, tag_id) VALUES (${entry!.id}, ${tag!.id})`;
@@ -73,6 +79,22 @@ describe("createDatabase", () => {
     const [remaining] = await sql<{ count: number }[]>`
       SELECT COUNT(*)::int AS count FROM entry_tags WHERE entry_id = ${entry!.id}
     `;
+
+    expect(remaining!.count).toBe(0);
+  });
+
+  it("cascades entry deletes when the owning user is deleted from auth.users", async () => {
+    const [entry] = await sql<{ id: number }[]>`
+      INSERT INTO entries (user_id, date, mood_rating, energy_level)
+      VALUES (${TEST_USER_ID}, '2026-07-23', 5, 5)
+      RETURNING id
+    `;
+
+    await sql`DELETE FROM auth.users WHERE id = ${TEST_USER_ID}`;
+
+    const [remaining] = await sql<
+      { count: number }[]
+    >`SELECT COUNT(*)::int AS count FROM entries WHERE id = ${entry!.id}`;
 
     expect(remaining!.count).toBe(0);
   });

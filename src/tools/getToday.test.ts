@@ -4,6 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
+import { ensureTestUsers, OTHER_TEST_USER_ID, TEST_USER_ID } from "../db/testUser.js";
 import { registerCreateEntryTool } from "./createEntry.js";
 import { registerGetTodayTool } from "./getToday.js";
 
@@ -11,10 +12,10 @@ const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
   "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
-async function setup(sql: postgres.Sql) {
+async function setup(sql: postgres.Sql, userId: string = TEST_USER_ID) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, sql);
-  registerGetTodayTool(server, sql);
+  registerCreateEntryTool(server, sql, userId);
+  registerGetTodayTool(server, sql, userId);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -34,6 +35,7 @@ describe("get_today tool", () => {
 
   beforeEach(async () => {
     await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    await ensureTestUsers(sql);
     ({ client } = await setup(sql));
   });
 
@@ -71,5 +73,18 @@ describe("get_today tool", () => {
       notes: "steady day",
       tags: ["calm"],
     });
+  });
+
+  it("doesn't return another user's entry for today", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const { client: otherClient } = await setup(sql, OTHER_TEST_USER_ID);
+    await otherClient.callTool({
+      name: "create_entry",
+      arguments: { date: today, mood_rating: 6, energy_level: 7 },
+    });
+
+    const result = await client.callTool({ name: "get_today", arguments: {} });
+
+    expect(textOf(result)).toBe("No entry logged for today yet. How are you feeling?");
   });
 });

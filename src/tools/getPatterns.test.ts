@@ -4,6 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
+import { ensureTestUsers, OTHER_TEST_USER_ID, TEST_USER_ID } from "../db/testUser.js";
 import { registerCreateEntryTool } from "./createEntry.js";
 import { registerGetPatternsTool } from "./getPatterns.js";
 
@@ -11,10 +12,10 @@ const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
   "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
-async function setup(sql: postgres.Sql) {
+async function setup(sql: postgres.Sql, userId: string = TEST_USER_ID) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, sql);
-  registerGetPatternsTool(server, sql);
+  registerCreateEntryTool(server, sql, userId);
+  registerGetPatternsTool(server, sql, userId);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -40,6 +41,7 @@ describe("get_patterns tool", () => {
 
   beforeEach(async () => {
     await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    await ensureTestUsers(sql);
     ({ client } = await setup(sql));
   });
 
@@ -156,5 +158,25 @@ describe("get_patterns tool", () => {
       (p: { summary: string }) => p.summary.match(/"(\w+)"/)?.[1],
     );
     expect(tagsInOrder).toEqual(["c", "a", "b"]);
+  });
+
+  it("never surfaces patterns from another user's entries", async () => {
+    const { client: otherClient } = await setup(sql, OTHER_TEST_USER_ID);
+    for (let i = 0; i < 5; i++) {
+      await otherClient.callTool({
+        name: "create_entry",
+        arguments: { date: daysAgo(i), mood_rating: 3, energy_level: 3, sleep_hours: 5 },
+      });
+    }
+    for (let i = 10; i < 15; i++) {
+      await otherClient.callTool({
+        name: "create_entry",
+        arguments: { date: daysAgo(i), mood_rating: 9, energy_level: 9, sleep_hours: 8 },
+      });
+    }
+
+    const result = await client.callTool({ name: "get_patterns", arguments: {} });
+
+    expect(textOf(result)).toContain("Not enough data yet");
   });
 });

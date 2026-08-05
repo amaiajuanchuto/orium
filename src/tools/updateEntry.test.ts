@@ -4,6 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
+import { ensureTestUsers, OTHER_TEST_USER_ID, TEST_USER_ID } from "../db/testUser.js";
 import { registerCreateEntryTool } from "./createEntry.js";
 import { registerUpdateEntryTool } from "./updateEntry.js";
 
@@ -11,10 +12,10 @@ const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
   "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
-async function setup(sql: postgres.Sql) {
+async function setup(sql: postgres.Sql, userId: string = TEST_USER_ID) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, sql);
-  registerUpdateEntryTool(server, sql);
+  registerCreateEntryTool(server, sql, userId);
+  registerUpdateEntryTool(server, sql, userId);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -34,6 +35,7 @@ describe("update_entry tool", () => {
 
   beforeEach(async () => {
     await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    await ensureTestUsers(sql);
     ({ client } = await setup(sql));
   });
 
@@ -177,5 +179,20 @@ describe("update_entry tool", () => {
     });
 
     expect(result.isError).toBe(true);
+  });
+
+  it("cannot update another user's entry", async () => {
+    const seed = await createSeedEntry();
+    const { client: otherClient } = await setup(sql, OTHER_TEST_USER_ID);
+
+    const result = await otherClient.callTool({
+      name: "update_entry",
+      arguments: { id: seed.id, mood_rating: 1 },
+    });
+
+    expect(result.isError).toBe(true);
+
+    const [row] = await sql`SELECT mood_rating FROM entries WHERE id = ${seed.id}`;
+    expect(row!.mood_rating).toBe(5);
   });
 });

@@ -4,6 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
+import { ensureTestUsers, OTHER_TEST_USER_ID, TEST_USER_ID } from "../db/testUser.js";
 import { registerCreateEntryTool } from "./createEntry.js";
 import { registerGetMoodTrendsTool } from "./getMoodTrends.js";
 
@@ -11,10 +12,10 @@ const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
   "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
-async function setup(sql: postgres.Sql) {
+async function setup(sql: postgres.Sql, userId: string = TEST_USER_ID) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, sql);
-  registerGetMoodTrendsTool(server, sql);
+  registerCreateEntryTool(server, sql, userId);
+  registerGetMoodTrendsTool(server, sql, userId);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -40,6 +41,7 @@ describe("get_mood_trends tool", () => {
 
   beforeEach(async () => {
     await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    await ensureTestUsers(sql);
     ({ client } = await setup(sql));
   });
 
@@ -141,5 +143,23 @@ describe("get_mood_trends tool", () => {
     });
 
     expect(result.isError).toBe(true);
+  });
+
+  it("excludes another user's entries from the averages", async () => {
+    await seedEntry(1, 8, 8);
+    const { client: otherClient } = await setup(sql, OTHER_TEST_USER_ID);
+    await otherClient.callTool({
+      name: "create_entry",
+      arguments: { date: daysAgo(1), mood_rating: 1, energy_level: 1 },
+    });
+
+    const result = await client.callTool({
+      name: "get_mood_trends",
+      arguments: { period: "week" },
+    });
+    const body = JSON.parse(textOf(result));
+
+    expect(body.current_period.mood_rating).toBe(8);
+    expect(body.current_period.entry_count).toBe(1);
   });
 });

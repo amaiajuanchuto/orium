@@ -4,6 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
+import { ensureTestUsers, TEST_USER_ID } from "../db/testUser.js";
 import { registerCreateEntryTool } from "./createEntry.js";
 
 const TEST_DATABASE_URL =
@@ -12,7 +13,7 @@ const TEST_DATABASE_URL =
 
 async function setup(sql: postgres.Sql) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, sql);
+  registerCreateEntryTool(server, sql, TEST_USER_ID);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -27,6 +28,7 @@ describe("create_entry tool", () => {
 
   beforeEach(async () => {
     await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    await ensureTestUsers(sql);
     ({ client } = await setup(sql));
   });
 
@@ -59,6 +61,7 @@ describe("create_entry tool", () => {
 
     const [row] = await sql`SELECT * FROM entries WHERE id = ${entry.id}`;
     expect(row).toBeDefined();
+    expect(row!.user_id).toBe(TEST_USER_ID);
   });
 
   it("creates and links tags", async () => {

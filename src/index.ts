@@ -99,7 +99,11 @@ async function verifySupabaseToken(token: string): Promise<string | null> {
   }
 }
 
-async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function requireAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const header = req.headers.authorization;
 
   if (header?.startsWith("Bearer ")) {
@@ -113,10 +117,7 @@ async function requireAuth(req: Request, res: Response, next: NextFunction): Pro
     }
   }
 
-  res.set(
-    "WWW-Authenticate",
-    `Bearer resource_metadata="${resourceMetadataUrl}"`,
-  );
+  res.set("WWW-Authenticate", `Bearer resource_metadata="${resourceMetadataUrl}"`);
   res.status(401).json({
     jsonrpc: "2.0",
     error: { code: -32001, message: "Unauthorized" },

@@ -4,6 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
+import { ensureTestUsers, OTHER_TEST_USER_ID, TEST_USER_ID } from "../db/testUser.js";
 import { registerCreateEntryTool } from "./createEntry.js";
 import { registerDeleteEntryTool } from "./deleteEntry.js";
 
@@ -11,10 +12,10 @@ const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
   "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
-async function setup(sql: postgres.Sql) {
+async function setup(sql: postgres.Sql, userId: string = TEST_USER_ID) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, sql);
-  registerDeleteEntryTool(server, sql);
+  registerCreateEntryTool(server, sql, userId);
+  registerDeleteEntryTool(server, sql, userId);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -34,6 +35,7 @@ describe("delete_entry tool", () => {
 
   beforeEach(async () => {
     await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    await ensureTestUsers(sql);
     ({ client } = await setup(sql));
   });
 
@@ -97,5 +99,20 @@ describe("delete_entry tool", () => {
     const tool = tools.find((t) => t.name === "delete_entry");
 
     expect(tool?.annotations?.destructiveHint).toBe(true);
+  });
+
+  it("cannot delete another user's entry", async () => {
+    const seed = await createSeedEntry();
+    const { client: otherClient } = await setup(sql, OTHER_TEST_USER_ID);
+
+    const result = await otherClient.callTool({
+      name: "delete_entry",
+      arguments: { id: seed.id },
+    });
+
+    expect(result.isError).toBe(true);
+
+    const [row] = await sql`SELECT * FROM entries WHERE id = ${seed.id}`;
+    expect(row).toBeDefined();
   });
 });

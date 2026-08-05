@@ -68,7 +68,8 @@ export function registerUpdateEntryTool(
       inputSchema: updateEntryInputSchema,
     },
     async ({ id, date, mood_rating, energy_level, sleep_hours, notes, tags }) => {
-      const [exists] = await sql`SELECT 1 FROM entries WHERE id = ${id} AND user_id = ${userId}`;
+      const [exists] =
+        await sql`SELECT 1 FROM entries WHERE id = ${id} AND user_id = ${userId}`;
       if (!exists) {
         return {
           content: [{ type: "text", text: `No entry found with id ${id}.` }],

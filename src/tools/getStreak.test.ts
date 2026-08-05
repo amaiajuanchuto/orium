@@ -4,6 +4,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
+import { ensureTestUsers, OTHER_TEST_USER_ID, TEST_USER_ID } from "../db/testUser.js";
 import { registerCreateEntryTool } from "./createEntry.js";
 import { registerGetStreakTool } from "./getStreak.js";
 
@@ -11,10 +12,10 @@ const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
   "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 
-async function setup(sql: postgres.Sql) {
+async function setup(sql: postgres.Sql, userId: string = TEST_USER_ID) {
   const server = new McpServer({ name: "orium-mcp-test", version: "0.0.0" });
-  registerCreateEntryTool(server, sql);
-  registerGetStreakTool(server, sql);
+  registerCreateEntryTool(server, sql, userId);
+  registerGetStreakTool(server, sql, userId);
 
   const client = new Client({ name: "test-client", version: "0.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -40,6 +41,7 @@ describe("get_streak tool", () => {
 
   beforeEach(async () => {
     await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    await ensureTestUsers(sql);
     ({ client } = await setup(sql));
   });
 
@@ -137,8 +139,8 @@ describe("get_streak tool", () => {
   it("returns no next milestone once the longest milestone is passed", async () => {
     const dates = Array.from({ length: 365 }, (_, i) => daysAgo(i));
     await sql`
-      INSERT INTO entries (date, mood_rating, energy_level)
-      SELECT unnest(${dates}::date[]), 5, 5
+      INSERT INTO entries (user_id, date, mood_rating, energy_level)
+      SELECT ${TEST_USER_ID}, unnest(${dates}::date[]), 5, 5
     `;
 
     const result = await client.callTool({ name: "get_streak", arguments: {} });
@@ -148,5 +150,21 @@ describe("get_streak tool", () => {
     expect(body.next_milestone).toBeNull();
     expect(body.days_until_next_milestone).toBeNull();
     expect(body.message).toBe("You're on a 365-day streak!");
+  });
+
+  it("only counts this user's entries toward the streak", async () => {
+    await seedEntry(0);
+    const { client: otherClient } = await setup(sql, OTHER_TEST_USER_ID);
+    for (let i = 0; i < 10; i++) {
+      await otherClient.callTool({
+        name: "create_entry",
+        arguments: { date: daysAgo(i), mood_rating: 5, energy_level: 5 },
+      });
+    }
+
+    const result = await client.callTool({ name: "get_streak", arguments: {} });
+    const body = JSON.parse(textOf(result));
+
+    expect(body.current_streak).toBe(1);
   });
 });

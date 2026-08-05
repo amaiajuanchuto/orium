@@ -44,7 +44,10 @@ function round(value: number): number {
  * @param userId - The authenticated user's id.
  * @returns The sleep pattern, or null if fewer than two buckets qualify.
  */
-async function getSleepPattern(sql: postgres.Sql, userId: string): Promise<Pattern | null> {
+async function getSleepPattern(
+  sql: postgres.Sql,
+  userId: string,
+): Promise<Pattern | null> {
   const rows = await sql<{ bucket: string; avg_mood: number; count: number }[]>`
     SELECT
       CASE
@@ -92,7 +95,10 @@ async function getSleepPattern(sql: postgres.Sql, userId: string): Promise<Patte
  * @param userId - The authenticated user's id.
  * @returns The day-of-week pattern, or null if fewer than two days qualify.
  */
-async function getDayOfWeekPattern(sql: postgres.Sql, userId: string): Promise<Pattern | null> {
+async function getDayOfWeekPattern(
+  sql: postgres.Sql,
+  userId: string,
+): Promise<Pattern | null> {
   const rows = await sql<{ dow: number; avg_mood: number; count: number }[]>`
     SELECT EXTRACT(DOW FROM date)::int AS dow, AVG(mood_rating) AS avg_mood, COUNT(*)::int AS count
     FROM entries
