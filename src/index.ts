@@ -15,7 +15,8 @@ import {
   mcpAuthMetadataRouter,
 } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import type { OAuthMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createApiRouter } from "./api/router.js";
+import { createTokenVerifier } from "./auth.js";
 import { createDatabase } from "./db/connection.js";
 import { registerAllTools } from "./registerTools.js";
 
@@ -76,28 +77,8 @@ async function fetchSupabaseOAuthMetadata(): Promise<OAuthMetadata> {
 const oauthMetadata = await fetchSupabaseOAuthMetadata();
 
 // Verifies access tokens issued by Supabase's OAuth 2.1 Server against its
-// published JWKS. `createRemoteJWKSet` fetches and caches the signing keys
-// automatically, refetching if a token references an unrecognized key id.
-const supabaseJwks = createRemoteJWKSet(
-  new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`),
-);
-const SUPABASE_ISSUER = `${SUPABASE_URL}/auth/v1`;
-
-/**
- * Verifies a Supabase-issued access token and returns the authenticated
- * user's id (the JWT's `sub` claim), or null if the token is invalid.
- */
-async function verifySupabaseToken(token: string): Promise<string | null> {
-  try {
-    const { payload } = await jwtVerify(token, supabaseJwks, {
-      issuer: SUPABASE_ISSUER,
-      audience: "authenticated",
-    });
-    return typeof payload.sub === "string" ? payload.sub : null;
-  } catch {
-    return null;
-  }
-}
+// published JWKS — shared by both the MCP transport and the REST API.
+const verifySupabaseToken = createTokenVerifier(SUPABASE_URL);
 
 async function requireAuth(
   req: Request,
@@ -134,6 +115,7 @@ app.use(
   }),
 );
 app.use("/mcp", requireAuth);
+app.use("/api/v1", createApiRouter(sql, verifySupabaseToken));
 
 app.post("/mcp", express.json(), async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
