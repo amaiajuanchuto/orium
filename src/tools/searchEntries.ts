@@ -4,25 +4,11 @@
 import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Entry, EntryWithTags } from "../db/types.js";
+import { searchEntries } from "../core/entries.js";
 
 const searchEntriesInputSchema = {
   keyword: z.string().min(1).max(200),
 };
-
-const MAX_RESULTS = 50;
-
-/**
- * Escapes Postgres `LIKE` wildcard characters (`%`, `_`, `\`) in `value` so
- * it can be safely embedded in a `LIKE ... ESCAPE '\'` pattern as a literal
- * substring match.
- *
- * @param value - Raw user-provided search keyword.
- * @returns `value` with wildcard characters backslash-escaped.
- */
-function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
-}
 
 /**
  * Registers the `search_entries` tool, which performs a case-insensitive
@@ -42,36 +28,13 @@ export function registerSearchEntriesTool(
       inputSchema: searchEntriesInputSchema,
     },
     async ({ keyword }) => {
-      const pattern = `%${escapeLikePattern(keyword)}%`;
+      const entriesWithTags = await searchEntries(sql, userId, keyword);
 
-      const entries = await sql<Entry[]>`
-        SELECT * FROM entries
-        WHERE user_id = ${userId}
-          AND notes IS NOT NULL AND LOWER(notes) LIKE LOWER(${pattern}) ESCAPE '\\'
-        ORDER BY date DESC, id DESC
-        LIMIT ${MAX_RESULTS}
-      `;
-
-      if (entries.length === 0) {
+      if (entriesWithTags.length === 0) {
         return {
           content: [{ type: "text", text: `No entries found matching "${keyword}".` }],
         };
       }
-
-      const entriesWithTags: EntryWithTags[] = await Promise.all(
-        entries.map(async (entry) => {
-          const tags = (
-            await sql<{ name: string }[]>`
-              SELECT t.name FROM tags t
-              JOIN entry_tags et ON et.tag_id = t.id
-              WHERE et.entry_id = ${entry.id}
-              ORDER BY t.name
-            `
-          ).map((row) => row.name);
-
-          return { ...entry, tags };
-        }),
-      );
 
       return {
         content: [

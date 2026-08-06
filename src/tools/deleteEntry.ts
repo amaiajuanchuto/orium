@@ -4,7 +4,7 @@
 import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Entry } from "../db/types.js";
+import { deleteEntry } from "../core/entries.js";
 
 const deleteEntryInputSchema = {
   id: z.number().int().positive(),
@@ -32,9 +32,7 @@ export function registerDeleteEntryTool(
       },
     },
     async ({ id }) => {
-      const [entry] = await sql<
-        Entry[]
-      >`SELECT * FROM entries WHERE id = ${id} AND user_id = ${userId}`;
+      const entry = await deleteEntry(sql, userId, id);
 
       if (!entry) {
         return {
@@ -42,8 +40,6 @@ export function registerDeleteEntryTool(
           isError: true,
         };
       }
-
-      await sql`DELETE FROM entries WHERE id = ${id} AND user_id = ${userId}`;
 
       return {
         content: [

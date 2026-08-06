@@ -4,8 +4,7 @@
 import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { upsertTag } from "../db/tags.js";
-import type { Entry } from "../db/types.js";
+import { createEntry } from "../core/entries.js";
 import { dateSchema } from "../db/validation.js";
 
 const createEntryInputSchema = {
@@ -35,26 +34,8 @@ export function registerCreateEntryTool(
         "Create a new mental health journal entry with mood, energy, sleep, and notes.",
       inputSchema: createEntryInputSchema,
     },
-    async ({ date, mood_rating, energy_level, sleep_hours, notes, tags }) => {
-      const entry = await sql.begin(async (tx) => {
-        const [row] = await tx<Entry[]>`
-          INSERT INTO entries (user_id, date, mood_rating, energy_level, sleep_hours, notes)
-          VALUES (${userId}, ${date}, ${mood_rating}, ${energy_level}, ${sleep_hours ?? null}, ${notes ?? null})
-          RETURNING *
-        `;
-        const entryId = row!.id;
-
-        for (const tagName of tags ?? []) {
-          const tagId = await upsertTag(tx, tagName);
-          await tx`
-            INSERT INTO entry_tags (entry_id, tag_id)
-            VALUES (${entryId}, ${tagId})
-            ON CONFLICT DO NOTHING
-          `;
-        }
-
-        return row!;
-      });
+    async (input) => {
+      const entry = await createEntry(sql, userId, input);
 
       return {
         content: [{ type: "text", text: JSON.stringify(entry, null, 2) }],

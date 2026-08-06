@@ -4,8 +4,7 @@
 import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { upsertTag } from "../db/tags.js";
-import type { Entry, EntryWithTags } from "../db/types.js";
+import { updateEntry } from "../core/entries.js";
 import { dateSchema } from "../db/validation.js";
 
 const updateEntryInputSchema = {
@@ -17,34 +16,6 @@ const updateEntryInputSchema = {
   notes: z.string().optional(),
   tags: z.array(z.string().min(1)).optional(),
 };
-
-/**
- * Fetches an entry by id along with its linked tag names.
- *
- * @param sql - Open database connection.
- * @param id - Id of the entry to fetch. Assumed to exist and belong to `userId`.
- * @param userId - The authenticated user's id.
- * @returns The entry row with a `tags` array of tag names.
- */
-async function getEntryWithTags(
-  sql: postgres.Sql | postgres.TransactionSql,
-  id: number,
-  userId: string,
-): Promise<EntryWithTags> {
-  const [entry] = await sql<
-    Entry[]
-  >`SELECT * FROM entries WHERE id = ${id} AND user_id = ${userId}`;
-  const tags = (
-    await sql<{ name: string }[]>`
-      SELECT t.name FROM tags t
-      JOIN entry_tags et ON et.tag_id = t.id
-      WHERE et.entry_id = ${id}
-      ORDER BY t.name
-    `
-  ).map((row) => row.name);
-
-  return { ...entry!, tags };
-}
 
 /**
  * Registers the `update_entry` tool, which partially updates an existing
@@ -67,48 +38,15 @@ export function registerUpdateEntryTool(
         "changed; if tags is provided, it replaces all existing tags for the entry.",
       inputSchema: updateEntryInputSchema,
     },
-    async ({ id, date, mood_rating, energy_level, sleep_hours, notes, tags }) => {
-      const [exists] =
-        await sql`SELECT 1 FROM entries WHERE id = ${id} AND user_id = ${userId}`;
-      if (!exists) {
+    async ({ id, ...input }) => {
+      const entry = await updateEntry(sql, userId, id, input);
+
+      if (!entry) {
         return {
           content: [{ type: "text", text: `No entry found with id ${id}.` }],
           isError: true,
         };
       }
-
-      const entry = await sql.begin(async (tx) => {
-        const updates: Record<string, unknown> = {};
-        if (date !== undefined) updates.date = date;
-        if (mood_rating !== undefined) updates.mood_rating = mood_rating;
-        if (energy_level !== undefined) updates.energy_level = energy_level;
-        if (sleep_hours !== undefined) updates.sleep_hours = sleep_hours;
-        if (notes !== undefined) updates.notes = notes;
-
-        if (Object.keys(updates).length > 0) {
-          await tx`UPDATE entries SET ${tx(updates)} WHERE id = ${id} AND user_id = ${userId}`;
-        } else {
-          // No scalar fields changed (e.g. a tags-only update) — still touch
-          // the row so the updated_at trigger fires, matching the tool's
-          // documented behavior of always refreshing updated_at.
-          await tx`UPDATE entries SET updated_at = DEFAULT WHERE id = ${id} AND user_id = ${userId}`;
-        }
-
-        if (tags !== undefined) {
-          await tx`DELETE FROM entry_tags WHERE entry_id = ${id}`;
-
-          for (const tagName of tags) {
-            const tagId = await upsertTag(tx, tagName);
-            await tx`
-              INSERT INTO entry_tags (entry_id, tag_id)
-              VALUES (${id}, ${tagId})
-              ON CONFLICT DO NOTHING
-            `;
-          }
-        }
-
-        return getEntryWithTags(tx, id, userId);
-      });
 
       return {
         content: [{ type: "text", text: JSON.stringify(entry, null, 2) }],

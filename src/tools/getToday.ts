@@ -3,7 +3,7 @@
  */
 import type postgres from "postgres";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Entry, EntryWithTags } from "../db/types.js";
+import { getTodayEntry } from "../core/entries.js";
 
 /**
  * Registers the `get_today` tool, which looks up the journal entry for
@@ -22,11 +22,7 @@ export function registerGetTodayTool(
       description: "Look up today's journal entry, if one exists, along with its tags.",
     },
     async () => {
-      const today = new Date().toISOString().slice(0, 10);
-
-      const [entry] = await sql<
-        Entry[]
-      >`SELECT * FROM entries WHERE date = ${today} AND user_id = ${userId}`;
+      const entry = await getTodayEntry(sql, userId);
 
       if (!entry) {
         return {
@@ -36,19 +32,8 @@ export function registerGetTodayTool(
         };
       }
 
-      const tags = (
-        await sql<{ name: string }[]>`
-          SELECT t.name FROM tags t
-          JOIN entry_tags et ON et.tag_id = t.id
-          WHERE et.entry_id = ${entry.id}
-          ORDER BY t.name
-        `
-      ).map((row) => row.name);
-
-      const entryWithTags: EntryWithTags = { ...entry, tags };
-
       return {
-        content: [{ type: "text", text: JSON.stringify(entryWithTags, null, 2) }],
+        content: [{ type: "text", text: JSON.stringify(entry, null, 2) }],
       };
     },
   );
