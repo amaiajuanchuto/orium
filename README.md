@@ -142,6 +142,26 @@ Once connected, just talk to Claude naturally; it picks the right tool for you.
 | `get_streak`      | Report the current/longest daily-logging streak and progress to the next milestone                                          |
 | `get_summary`     | Comprehensive week/month review: averages, trend, best/worst days, top tags, tag impact, streak, and a personalized message |
 
+## REST API
+
+Alongside the MCP tools, Orium exposes a REST API at `/api/v1` — the same core logic, for building a UI (like a future dashboard) on top of instead of chatting with Claude. Authenticate the same way as `/mcp`: `Authorization: Bearer <Supabase access token>`.
+
+| Method   | Path                   | Description                                                 |
+| -------- | ---------------------- | ----------------------------------------------------------- |
+| `GET`    | `/entries`             | List entries (same filters as `list_entries`)               |
+| `POST`   | `/entries`             | Create an entry — `201` on success                          |
+| `GET`    | `/entries/:id`         | Fetch a single entry — `404` if not found                   |
+| `PATCH`  | `/entries/:id`         | Partially update an entry — `404` if not found              |
+| `DELETE` | `/entries/:id`         | Delete an entry — `404` if not found                        |
+| `GET`    | `/today`               | Today's entry, or `null`                                    |
+| `GET`    | `/search?keyword=`     | Keyword search across notes                                 |
+| `GET`    | `/streak`              | Streak report, or `null` with no entries                    |
+| `GET`    | `/summary?period=`     | `week` or `month` — full period review, or `null`           |
+| `GET`    | `/mood-trends?period=` | `week`, `month`, or `quarter` — trend comparison, or `null` |
+| `GET`    | `/patterns`            | Mood correlations — `[]` if not enough data                 |
+
+Invalid input returns `400` with `{ error: "Validation failed", issues: [...] }` (zod's issue list). Every query is scoped to the authenticated user, same as the MCP tools.
+
 ## Database schema
 
 Three tables, defined in [`supabase/migrations`](supabase/migrations):
@@ -173,6 +193,12 @@ public/
   login.html           # Supabase Auth login page (for the OAuth consent flow)
   oauth-consent.html    # OAuth authorization consent screen
 src/
+  core/
+    entries.ts           # entry CRUD/query logic, shared by MCP tools and the REST API
+    insights.ts           # streak/summary/trends/patterns logic, same sharing
+  api/
+    router.ts             # REST API (/api/v1) built on src/core
+    router.test.ts
   db/
     connection.ts       # opens the Postgres connection
     connection.test.ts
@@ -181,6 +207,7 @@ src/
     tags.ts                # tag upsert helper
     dates.ts                 # shared date helpers (toISODate, addDays, round)
     streak.ts                 # shared streak calculation
+    testUser.ts                # test-only fake Supabase Auth user helper
   tools/
     createEntry.ts
     listEntries.ts
@@ -194,6 +221,7 @@ src/
     getSummary.ts
     *.test.ts          # one test file per tool
   registerTools.ts     # registers all 10 tools on an McpServer instance
+  auth.ts               # Supabase OAuth token verification, shared by MCP + API
   index.ts             # HTTP server entry point: transport, auth, OAuth metadata
 ```
 
