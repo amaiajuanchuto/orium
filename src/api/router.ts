@@ -22,6 +22,7 @@ import {
   updateEntry,
 } from "../core/entries.js";
 import { getMoodTrends, getPatterns, getStreak, getSummary } from "../core/insights.js";
+import { getProfile, upsertProfile } from "../core/profile.js";
 import { DATE_REGEX } from "../db/types.js";
 import { dateSchema } from "../db/validation.js";
 import type { TokenVerifier } from "../auth.js";
@@ -71,6 +72,18 @@ const moodTrendsQuerySchema = z.object({
 
 const idParamSchema = z.object({
   id: z.coerce.number().int().positive(),
+});
+
+const upsertProfileBodySchema = z.object({
+  name: z.string().nullable().optional(),
+  age: z.string().nullable().optional(),
+  pronouns: z.string().nullable().optional(),
+  work: z.string().nullable().optional(),
+  work_rhythm: z.string().nullable().optional(),
+  exercise: z.array(z.string().min(1)).optional(),
+  diet: z.string().nullable().optional(),
+  hobbies: z.array(z.string().min(1)).optional(),
+  note: z.string().nullable().optional(),
 });
 
 /**
@@ -215,6 +228,17 @@ export function createApiRouter(
 
   router.get("/patterns", async (req, res) => {
     res.json(await getPatterns(sql, req.userId!));
+  });
+
+  router.get("/profile", async (req, res) => {
+    res.json(await getProfile(sql, req.userId!));
+  });
+
+  router.put("/profile", async (req, res) => {
+    const body = parseOr400(upsertProfileBodySchema, req.body, res);
+    if (!body) return;
+
+    res.json(await upsertProfile(sql, req.userId!, body));
   });
 
   // Express 5 forwards rejected promises from the async handlers above to

@@ -19,3 +19,18 @@ export interface Entry {
 export interface EntryWithTags extends Entry {
   tags: string[];
 }
+
+export interface Profile {
+  user_id: string;
+  name: string | null;
+  age: string | null;
+  pronouns: string | null;
+  work: string | null;
+  work_rhythm: string | null;
+  exercise: string[];
+  diet: string | null;
+  hobbies: string[];
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}

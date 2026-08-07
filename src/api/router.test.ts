@@ -30,7 +30,7 @@ describe("API router", () => {
   let app: express.Express;
 
   beforeEach(async () => {
-    await sql`TRUNCATE entries, tags, entry_tags RESTART IDENTITY CASCADE`;
+    await sql`TRUNCATE entries, tags, entry_tags, profiles RESTART IDENTITY CASCADE`;
     await ensureTestUsers(sql);
     app = buildApp(sql);
   });
@@ -331,6 +331,79 @@ describe("API router", () => {
         .set("Authorization", "Bearer test-token");
       expect(res.status).toBe(200);
       expect(res.body).toEqual([]);
+    });
+  });
+
+  describe("GET /profile", () => {
+    it("returns null when no profile has been set up", async () => {
+      const res = await request(app)
+        .get("/api/v1/profile")
+        .set("Authorization", "Bearer test-token");
+      expect(res.status).toBe(200);
+      expect(res.body).toBeNull();
+    });
+  });
+
+  describe("PUT /profile", () => {
+    it("creates a profile on first upsert", async () => {
+      const res = await request(app)
+        .put("/api/v1/profile")
+        .set("Authorization", "Bearer test-token")
+        .send({ name: "Amaia", pronouns: "she/her", exercise: ["Running", "Yoga"] });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        user_id: TEST_USER_ID,
+        name: "Amaia",
+        pronouns: "she/her",
+        exercise: ["Running", "Yoga"],
+        hobbies: [],
+      });
+    });
+
+    it("only changes the provided fields on subsequent upserts", async () => {
+      await request(app)
+        .put("/api/v1/profile")
+        .set("Authorization", "Bearer test-token")
+        .send({ name: "Amaia", diet: "Vegetarian" });
+
+      const res = await request(app)
+        .put("/api/v1/profile")
+        .set("Authorization", "Bearer test-token")
+        .send({ pronouns: "she/her" });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        name: "Amaia",
+        diet: "Vegetarian",
+        pronouns: "she/her",
+      });
+    });
+
+    it("keeps each user's profile separate", async () => {
+      await request(app)
+        .put("/api/v1/profile")
+        .set("Authorization", "Bearer test-token")
+        .send({ name: "Amaia" });
+      await request(app)
+        .put("/api/v1/profile")
+        .set("Authorization", "Bearer other-token")
+        .send({ name: "Someone Else" });
+
+      const res = await request(app)
+        .get("/api/v1/profile")
+        .set("Authorization", "Bearer test-token");
+
+      expect(res.body.name).toBe("Amaia");
+    });
+
+    it("returns 400 for an invalid body", async () => {
+      const res = await request(app)
+        .put("/api/v1/profile")
+        .set("Authorization", "Bearer test-token")
+        .send({ exercise: "not-an-array" });
+
+      expect(res.status).toBe(400);
     });
   });
 });
