@@ -8,7 +8,7 @@
     "orium-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && npm install --prefix dashboard && npm run build --prefix dashboard",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest run",

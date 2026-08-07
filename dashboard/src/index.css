@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #fef8e5;
+  --surface: #fffdf3;
+  --surface-2: #f3efd8;
+  --chip: #eef0d9;
+  --chip-ink: #8b6b4a;
+  --field: #fffef7;
+  --ink: #3d472d;
+  --ink-soft: #4a4038;
+  --muted: #8b7f70;
+  --label: #94a56a;
+  --faint: #a99a87;
+  --nav-ink: #6b5e4f;
+  --nav-active: #eef0d9;
+  --empty: #e7e3ca;
+  --accent: #7e9d4d;
+  --accent-dark: #5f7d38;
+  --on-accent: #fef8e5;
+  --border-1: rgba(61, 71, 45, 0.08);
+  --border-2: rgba(61, 71, 45, 0.12);
+  --border-3: rgba(61, 71, 45, 0.16);
+  --shadow: rgba(61, 71, 45, 0.05);
+}
+
+[data-theme="dark"] {
+  --bg: #2b3320;
+  --surface: #3d472d;
+  --surface-2: #47543a;
+  --chip: #4b5a37;
+  --chip-ink: #cfd4b4;
+  --field: #333d26;
+  --ink: #fef8e5;
+  --ink-soft: #e7ecd5;
+  --muted: #a9b591;
+  --label: #a3c268;
+  --faint: #8b967a;
+  --nav-ink: #c4cdb0;
+  --nav-active: #4b5a37;
+  --empty: #414b32;
+  --accent: #a3c268;
+  --accent-dark: #c3dc8a;
+  --on-accent: #26301b;
+  --border-1: rgba(254, 248, 229, 0.1);
+  --border-2: rgba(254, 248, 229, 0.14);
+  --border-3: rgba(254, 248, 229, 0.22);
+  --shadow: rgba(0, 0, 0, 0.28);
+}
+
+@theme {
+  --font-body: "Nunito", sans-serif;
+  --font-heading: "Quicksand", sans-serif;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-chip: var(--chip);
+  --color-chip-ink: var(--chip-ink);
+  --color-field: var(--field);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-label: var(--label);
+  --color-faint: var(--faint);
+  --color-nav-ink: var(--nav-ink);
+  --color-nav-active: var(--nav-active);
+  --color-empty: var(--empty);
+  --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dark);
+  --color-on-accent: var(--on-accent);
+  --color-border-1: var(--border-1);
+  --color-border-2: var(--border-2);
+  --color-border-3: var(--border-3);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+}

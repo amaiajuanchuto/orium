@@ -49,6 +49,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
+const DASHBOARD_DIR = path.join(__dirname, "..", "dashboard", "dist");
 
 const sql = createDatabase(DATABASE_URL);
 
@@ -184,6 +185,16 @@ app.get("/login", (_req, res) => {
 
 app.get("/oauth/consent", (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "oauth-consent.html"));
+});
+
+// The dashboard SPA, built separately (see dashboard/) and served as
+// static files from this same process — see the "same service" decision
+// in README for why it isn't a separate deployment. Client-side routes
+// (e.g. /today, /journal) all fall back to index.html so React Router can
+// take over; this must come last so it doesn't shadow /mcp, /api/v1, etc.
+app.use(express.static(DASHBOARD_DIR));
+app.get(/^(?!\/mcp|\/api\/v1|\/health|\/login|\/oauth\/consent).*/, (_req, res) => {
+  res.sendFile(path.join(DASHBOARD_DIR, "index.html"));
 });
 
 const httpServer = app.listen(PORT, () => {
