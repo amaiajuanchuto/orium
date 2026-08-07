@@ -25,6 +25,12 @@ export function addMonths(date: Date, delta: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + delta, 1);
 }
 
+export function addDays(date: Date, delta: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + delta);
+  return result;
+}
+
 export const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export const WEEKDAY_NAMES = [
   "Sunday",

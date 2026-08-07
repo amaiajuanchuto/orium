@@ -5,6 +5,8 @@ import { Login } from "./views/Login";
 import { Today } from "./views/Today";
 import { Journal } from "./views/Journal";
 import { Calendar } from "./views/Calendar";
+import { Trends } from "./views/Trends";
+import { Patterns } from "./views/Patterns";
 
 function ComingSoon({ name }: { name: string }) {
   return (
@@ -39,8 +41,8 @@ export default function App() {
         <Route path="/today" element={<Today />} />
         <Route path="/journal" element={<Journal />} />
         <Route path="/calendar" element={<Calendar />} />
-        <Route path="/trends" element={<ComingSoon name="Trends" />} />
-        <Route path="/patterns" element={<ComingSoon name="Patterns" />} />
+        <Route path="/trends" element={<Trends />} />
+        <Route path="/patterns" element={<Patterns />} />
         <Route path="/profile" element={<ComingSoon name="Profile" />} />
         <Route path="*" element={<Navigate to="/today" replace />} />
       </Route>
