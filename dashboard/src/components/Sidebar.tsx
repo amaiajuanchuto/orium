@@ -19,7 +19,10 @@ export function Sidebar() {
   const [streak, setStreak] = useState<StreakResult | null>(null);
 
   useEffect(() => {
-    api.getStreak().then(setStreak).catch(() => undefined);
+    api
+      .getStreak()
+      .then(setStreak)
+      .catch(() => undefined);
   }, []);
 
   return (
@@ -60,7 +63,9 @@ export function Sidebar() {
             to={item.to}
             className={({ isActive }) =>
               `rounded-lg px-3 py-2 text-sm font-medium transition ${
-                isActive ? "bg-nav-active text-ink" : "text-nav-ink hover:bg-nav-active/60"
+                isActive
+                  ? "bg-nav-active text-ink"
+                  : "text-nav-ink hover:bg-nav-active/60"
               }`
             }
           >

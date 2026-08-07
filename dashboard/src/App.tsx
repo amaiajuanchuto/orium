@@ -11,9 +11,7 @@ import { Patterns } from "./views/Patterns";
 function ComingSoon({ name }: { name: string }) {
   return (
     <div className="text-muted">
-      <h1 className="mb-2 font-heading text-2xl font-semibold text-ink">
-        {name}
-      </h1>
+      <h1 className="mb-2 font-heading text-2xl font-semibold text-ink">{name}</h1>
       <p>This view is coming soon.</p>
     </div>
   );

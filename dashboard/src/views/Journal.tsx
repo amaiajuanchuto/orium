@@ -22,9 +22,7 @@ export function Journal() {
 
   return (
     <div>
-      <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">
-        Journal
-      </h1>
+      <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">Journal</h1>
       <p className="mb-6 text-sm text-muted">All your past entries.</p>
 
       <form
@@ -71,15 +69,15 @@ export function Journal() {
               <div className="flex-1">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="font-heading font-semibold text-ink">
-                    {new Date(entry.date + "T00:00:00").toLocaleDateString(
-                      undefined,
-                      { month: "long", day: "numeric", year: "numeric" },
-                    )}
+                    {new Date(entry.date + "T00:00:00").toLocaleDateString(undefined, {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
                   </p>
                   <p className="text-xs text-muted">
                     Energy {entry.energy_level}
-                    {entry.sleep_hours != null &&
-                      ` · Sleep ${entry.sleep_hours}h`}
+                    {entry.sleep_hours != null && ` · Sleep ${entry.sleep_hours}h`}
                   </p>
                 </div>
                 {entry.notes && (

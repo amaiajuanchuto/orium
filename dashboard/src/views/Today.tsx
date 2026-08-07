@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  api,
-  type EntryWithTags,
-  type Pattern,
-  type SummaryResult,
-} from "../lib/api";
+import { api, type EntryWithTags, type Pattern, type SummaryResult } from "../lib/api";
 import { colorForMood } from "../lib/mood";
 
 const QUICK_TAGS = [
@@ -45,7 +40,10 @@ export function Today() {
         setTags(entry.tags);
       }
     });
-    api.getSummary("week").then(setSummary).catch(() => undefined);
+    api
+      .getSummary("week")
+      .then(setSummary)
+      .catch(() => undefined);
     api
       .getPatterns()
       .then((patterns) => setPattern(patterns[0] ?? null))
@@ -58,9 +56,7 @@ export function Today() {
 
   function toggleTag(tag: string): void {
     setTags((current) =>
-      current.includes(tag)
-        ? current.filter((t) => t !== tag)
-        : [...current, tag],
+      current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag],
     );
   }
 
@@ -98,9 +94,7 @@ export function Today() {
           })}
         </p>
 
-        <label className="mb-2 block text-sm font-medium text-ink-soft">
-          Mood
-        </label>
+        <label className="mb-2 block text-sm font-medium text-ink-soft">Mood</label>
         <div className="mb-5 flex gap-2">
           {DOTS.map((d) => (
             <button
@@ -119,9 +113,7 @@ export function Today() {
           ))}
         </div>
 
-        <label className="mb-2 block text-sm font-medium text-ink-soft">
-          Energy
-        </label>
+        <label className="mb-2 block text-sm font-medium text-ink-soft">Energy</label>
         <div className="mb-5 flex gap-1.5">
           {DOTS.map((d) => (
             <button
@@ -149,9 +141,7 @@ export function Today() {
           className="mb-5 w-32 rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
         />
 
-        <label className="mb-2 block text-sm font-medium text-ink-soft">
-          Tags
-        </label>
+        <label className="mb-2 block text-sm font-medium text-ink-soft">Tags</label>
         <div className="mb-5 flex flex-wrap gap-2">
           {QUICK_TAGS.map((tag) => {
             const active = tags.includes(tag);
@@ -172,9 +162,7 @@ export function Today() {
           })}
         </div>
 
-        <label className="mb-2 block text-sm font-medium text-ink-soft">
-          Notes
-        </label>
+        <label className="mb-2 block text-sm font-medium text-ink-soft">Notes</label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -189,9 +177,7 @@ export function Today() {
         >
           {saving ? "Saving…" : existing ? "Update entry" : "Save entry"}
         </button>
-        {savedAt && (
-          <span className="ml-3 text-sm text-muted">Saved.</span>
-        )}
+        {savedAt && <span className="ml-3 text-sm text-muted">Saved.</span>}
       </section>
 
       <aside className="flex flex-col gap-5">
@@ -202,9 +188,7 @@ export function Today() {
               background: "linear-gradient(135deg, var(--accent), var(--accent-dark))",
             }}
           >
-            <p className="text-xs uppercase tracking-wide opacity-80">
-              This week
-            </p>
+            <p className="text-xs uppercase tracking-wide opacity-80">This week</p>
             <p className="mt-1 font-heading text-4xl font-bold">
               {summary.averages.mood_rating ?? "–"}
             </p>

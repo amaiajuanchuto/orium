@@ -168,8 +168,7 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
-  deleteEntry: (id: number) =>
-    request<Entry>(`/entries/${id}`, { method: "DELETE" }),
+  deleteEntry: (id: number) => request<Entry>(`/entries/${id}`, { method: "DELETE" }),
 
   getToday: () => request<EntryWithTags | null>("/today"),
 

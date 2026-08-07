@@ -41,9 +41,7 @@ function StatCard({
 }) {
   return (
     <div className="rounded-2xl border border-border-1 bg-surface p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-        {label}
-      </p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</p>
       <p className="mt-1 font-heading text-2xl font-bold text-ink">
         {current != null ? `${current}${suffix}` : "–"}
       </p>
@@ -71,7 +69,10 @@ export function Trends() {
       .then((list) => setEntries([...list].reverse()))
       .catch(() => setEntries([]));
 
-    api.getMoodTrends(period).then(setTrends).catch(() => setTrends(null));
+    api
+      .getMoodTrends(period)
+      .then(setTrends)
+      .catch(() => setTrends(null));
   }, [period]);
 
   const chartData = entries.map((e) => ({
@@ -83,9 +84,7 @@ export function Trends() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-semibold text-ink">
-          Trends
-        </h1>
+        <h1 className="font-heading text-2xl font-semibold text-ink">Trends</h1>
         <div className="flex gap-2">
           {PERIODS.map((p) => (
             <button

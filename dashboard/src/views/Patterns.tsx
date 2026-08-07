@@ -11,14 +11,15 @@ export function Patterns() {
   const [patterns, setPatterns] = useState<Pattern[] | null>(null);
 
   useEffect(() => {
-    api.getPatterns().then(setPatterns).catch(() => setPatterns([]));
+    api
+      .getPatterns()
+      .then(setPatterns)
+      .catch(() => setPatterns([]));
   }, []);
 
   return (
     <div>
-      <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">
-        Patterns
-      </h1>
+      <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">Patterns</h1>
       <p className="mb-6 text-sm text-muted">
         What tends to lift your mood — and what weighs on it.
       </p>
@@ -27,8 +28,7 @@ export function Patterns() {
 
       {patterns !== null && patterns.length === 0 && (
         <p className="text-muted">
-          Not enough data yet to surface patterns — keep logging and check
-          back soon.
+          Not enough data yet to surface patterns — keep logging and check back soon.
         </p>
       )}
 
@@ -36,10 +36,7 @@ export function Patterns() {
         {patterns?.map((pattern, i) => {
           const positive = pattern.effect_size >= 0;
           return (
-            <div
-              key={i}
-              className="rounded-2xl border border-border-1 bg-surface p-6"
-            >
+            <div key={i} className="rounded-2xl border border-border-1 bg-surface p-6">
               <div className="mb-3 flex items-center justify-between">
                 <span
                   className="rounded-full px-2.5 py-0.5 text-xs font-semibold"

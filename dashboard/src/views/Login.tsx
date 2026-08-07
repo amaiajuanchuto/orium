@@ -23,9 +23,7 @@ export function Login() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-2xl border border-border-1 bg-surface p-8 shadow-sm"
       >
-        <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">
-          Orium
-        </h1>
+        <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">Orium</h1>
         <p className="mb-6 text-sm text-muted">Log in to your journal.</p>
 
         <label className="mb-1 block text-sm text-ink-soft" htmlFor="email">
@@ -40,10 +38,7 @@ export function Login() {
           className="mb-4 w-full rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
         />
 
-        <label
-          className="mb-1 block text-sm text-ink-soft"
-          htmlFor="password"
-        >
+        <label className="mb-1 block text-sm text-ink-soft" htmlFor="password">
           Password
         </label>
         <input
