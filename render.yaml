@@ -12,6 +12,6 @@ services:
       - key: SUPABASE_URL
         value: https://imxmcavkzpbbqbhcefkj.supabase.co
       - key: PUBLIC_URL
-        value: https://orium.onrender.com
+        value: https://orium-mcp.onrender.com
       - key: NODE_VERSION
         value: 20
