@@ -109,6 +109,33 @@ export interface Pattern {
   tip: string;
 }
 
+export interface Profile {
+  user_id: string;
+  name: string | null;
+  age: string | null;
+  pronouns: string | null;
+  work: string | null;
+  work_rhythm: string | null;
+  exercise: string[];
+  diet: string | null;
+  hobbies: string[];
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpsertProfileInput {
+  name?: string | null;
+  age?: string | null;
+  pronouns?: string | null;
+  work?: string | null;
+  work_rhythm?: string | null;
+  exercise?: string[];
+  diet?: string | null;
+  hobbies?: string[];
+  note?: string | null;
+}
+
 class ApiError extends Error {
   status: number;
 
@@ -184,6 +211,14 @@ export const api = {
     request<MoodTrendsResult | null>(`/mood-trends${buildQuery({ period })}`),
 
   getPatterns: () => request<Pattern[]>("/patterns"),
+
+  getProfile: () => request<Profile | null>("/profile"),
+
+  upsertProfile: (input: UpsertProfileInput) =>
+    request<Profile>("/profile", {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
 };
 
 export { ApiError };

@@ -7,15 +7,7 @@ import { Journal } from "./views/Journal";
 import { Calendar } from "./views/Calendar";
 import { Trends } from "./views/Trends";
 import { Patterns } from "./views/Patterns";
-
-function ComingSoon({ name }: { name: string }) {
-  return (
-    <div className="text-muted">
-      <h1 className="mb-2 font-heading text-2xl font-semibold text-ink">{name}</h1>
-      <p>This view is coming soon.</p>
-    </div>
-  );
-}
+import { Profile } from "./views/Profile";
 
 export default function App() {
   const { session, loading } = useAuth();
@@ -41,7 +33,7 @@ export default function App() {
         <Route path="/calendar" element={<Calendar />} />
         <Route path="/trends" element={<Trends />} />
         <Route path="/patterns" element={<Patterns />} />
-        <Route path="/profile" element={<ComingSoon name="Profile" />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/today" replace />} />
       </Route>
     </Routes>
