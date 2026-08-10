@@ -1,7 +1,7 @@
 /**
- * Exports all journal data (entries, tags, entry_tags) to a JSON file.
- * Schema itself is already version-controlled via supabase/migrations —
- * this only needs to capture data.
+ * Exports all journal data (entries, tags, entry_tags, profiles) to a JSON
+ * file. Schema itself is already version-controlled via supabase/migrations
+ * — this only needs to capture data.
  *
  * Usage: DATABASE_URL=... node scripts/backup.mjs <output-file>
  */
@@ -19,6 +19,9 @@ if (!outputPath) {
 }
 
 const sql = postgres(DATABASE_URL, {
+  // See server/src/db/connection.ts — required over Supabase's transaction
+  // pooler to avoid "prepared statement does not exist" errors.
+  prepare: false,
   types: {
     date: {
       to: 1082,
@@ -29,10 +32,11 @@ const sql = postgres(DATABASE_URL, {
   },
 });
 
-const [entries, tags, entryTags] = await Promise.all([
+const [entries, tags, entryTags, profiles] = await Promise.all([
   sql`SELECT * FROM entries ORDER BY id`,
   sql`SELECT * FROM tags ORDER BY id`,
   sql`SELECT * FROM entry_tags ORDER BY entry_id, tag_id`,
+  sql`SELECT * FROM profiles ORDER BY user_id`,
 ]);
 
 const backup = {
@@ -40,11 +44,12 @@ const backup = {
   entries,
   tags,
   entry_tags: entryTags,
+  profiles,
 };
 
 await writeFile(outputPath, JSON.stringify(backup, null, 2));
 console.log(
-  `Backed up ${entries.length} entries, ${tags.length} tags, ${entryTags.length} entry_tags to ${outputPath}`,
+  `Backed up ${entries.length} entries, ${tags.length} tags, ${entryTags.length} entry_tags, ${profiles.length} profiles to ${outputPath}`,
 );
 
 await sql.end();

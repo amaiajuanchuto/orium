@@ -18,7 +18,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ open, onClose }: SidebarProps) {
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const { streak } = useStreak();
 
   return (
@@ -39,31 +39,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         <img
           src={theme === "dark" ? "/logo-dark.png" : "/logo.png"}
           alt="Orium"
-          className="mb-6 h-8 w-auto object-contain object-left"
+          className="mb-6 h-12 w-auto object-contain object-left"
         />
-
-        <div className="mb-6 flex rounded-full border border-border-3 bg-surface-2 p-1 text-sm">
-          <button
-            onClick={() => setTheme("light")}
-            className="flex-1 rounded-full py-1 transition"
-            style={{
-              background: theme === "light" ? "var(--surface)" : "transparent",
-              color: theme === "light" ? "var(--ink)" : "var(--muted)",
-            }}
-          >
-            Light
-          </button>
-          <button
-            onClick={() => setTheme("dark")}
-            className="flex-1 rounded-full py-1 transition"
-            style={{
-              background: theme === "dark" ? "var(--surface)" : "transparent",
-              color: theme === "dark" ? "var(--ink)" : "var(--muted)",
-            }}
-          >
-            Dark
-          </button>
-        </div>
 
         <nav className="flex flex-1 flex-col gap-1">
           {NAV_ITEMS.map((item) => (

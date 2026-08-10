@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { PasswordInput } from "../components/PasswordInput";
 
 const FEATURES = [
   "Journal your mood, energy, and sleep in seconds — from chat or the web.",
@@ -152,7 +153,9 @@ export function Login() {
               </label>
               <input
                 id="email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -164,14 +167,17 @@ export function Login() {
                   <label className="mb-1 block text-sm text-ink-soft" htmlFor="password">
                     Password
                   </label>
-                  <input
-                    id="password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={`w-full rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent ${mode === "login" ? "mb-1" : "mb-4"}`}
-                  />
+                  <div className={mode === "login" ? "mb-1" : "mb-4"}>
+                    <PasswordInput
+                      id="password"
+                      name="password"
+                      autoComplete={
+                        mode === "login" ? "current-password" : "new-password"
+                      }
+                      value={password}
+                      onChange={setPassword}
+                    />
+                  </div>
                   {mode === "login" && (
                     <button
                       type="button"
@@ -192,14 +198,15 @@ export function Login() {
                   >
                     Confirm password
                   </label>
-                  <input
-                    id="confirmPassword"
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="mb-4 w-full rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
-                  />
+                  <div className="mb-4">
+                    <PasswordInput
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={setConfirmPassword}
+                    />
+                  </div>
                 </>
               )}
 

@@ -92,7 +92,7 @@ Any other host that runs a persistent Node process works too — the blueprint i
 
 ### Dashboard
 
-Orium also ships a web dashboard — a visual alternative to chatting with Claude, for logging entries and browsing your history/trends. It's a React SPA (see [`dashboard/`](dashboard)) built and served as static files from the same server, so no separate deployment or CORS setup is needed: once the server is running, the dashboard is available at its root URL (e.g. `https://your-app.onrender.com/`). It authenticates the same way as everything else — Supabase login, same account, same private data.
+Orium also ships a web dashboard — a visual, mobile-responsive alternative to chatting with Claude, for logging entries and browsing your history/trends. It's a React SPA (see [`dashboard/`](dashboard)) built and served as static files from the same server, so no separate deployment or CORS setup is needed: once the server is running, the dashboard is available at its root URL (e.g. `https://your-app.onrender.com/`). It authenticates the same way as everything else — Supabase login, same account, same private data — and the login page itself supports self-serve **sign-up** and **forgot/reset password**, so people don't need Supabase Admin access to create or recover an account (as long as sign-up is enabled per the OAuth setup step above).
 
 Views: **Today** (log/edit today's entry), **Journal** (search/browse past entries), **Calendar** (month view with mood-colored days), **Trends** (mood/energy over time), **Patterns** (correlations with sleep, day of week, and tags), **Profile** (optional lifestyle context — work, exercise, diet, etc. — to help Orium notice more meaningful patterns).
 
@@ -174,7 +174,7 @@ Invalid input returns `400` with `{ error: "Validation failed", issues: [...] }`
 
 Four tables, defined in [`server/supabase/migrations`](server/supabase/migrations):
 
-- **entries** — one row per journal entry (`user_id`, `date`, `mood_rating` and `energy_level` 1–10, `sleep_hours`, `notes`, timestamps; `updated_at` is refreshed automatically by a trigger). Every query is scoped to the authenticated user's own `user_id`, and Row Level Security policies enforce the same boundary at the database level.
+- **entries** — one row per journal entry (`user_id`, `date`, `mood_rating` and `energy_level` 1–10, `sleep_hours`, `notes`, timestamps; `updated_at` is refreshed automatically by a trigger). A unique constraint on `(user_id, date)` means a user can only have one entry per day — creating a second entry for a date replaces the first rather than adding a duplicate. Every query is scoped to the authenticated user's own `user_id`, and Row Level Security policies enforce the same boundary at the database level.
 - **tags** — a shared, global vocabulary (not per-user) — seeded with ~80 common journaling tags, and anyone can add more on the fly, same as before
 - **entry_tags** — many-to-many join between entries and tags, with cascading deletes
 - **profiles** — one row per user, optional lifestyle context (name, pronouns, work, exercise, diet, hobbies, free-text note) shown/edited in the dashboard's Profile view; same `user_id` scoping and RLS as `entries`
