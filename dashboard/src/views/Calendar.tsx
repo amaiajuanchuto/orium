@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, type EntryWithTags } from "../lib/api";
 import { colorForMood } from "../lib/mood";
 import { LoadingScreen } from "../components/LoadingScreen";
+import { EntryForm } from "../components/EntryForm";
 import {
   addMonths,
   daysInMonth,
@@ -17,6 +18,7 @@ export function Calendar() {
   const [monthDate, setMonthDate] = useState(() => startOfMonth(new Date()));
   const [entries, setEntries] = useState<Record<string, EntryWithTags>>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const year = monthDate.getFullYear();
@@ -25,6 +27,7 @@ export function Calendar() {
 
   useEffect(() => {
     setSelectedDate(null);
+    setEditing(false);
     setLoading(true);
     const from = formatISOFromParts(year, month, 1);
     const to = formatISOFromParts(year, month, daysInMonth(monthDate));
@@ -98,7 +101,10 @@ export function Calendar() {
                 <button
                   key={cell.date}
                   disabled={future}
-                  onClick={() => setSelectedDate(cell.date)}
+                  onClick={() => {
+                    setSelectedDate(cell.date);
+                    setEditing(false);
+                  }}
                   className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border text-sm transition"
                   style={{
                     borderColor: sel ? "var(--accent)" : "var(--border-1)",
@@ -141,15 +147,25 @@ export function Calendar() {
 
         {selectedDate && (
           <div className="rounded-2xl border border-border-1 bg-surface p-6">
-            {selected ? (
-              <>
-                <p className="text-xs text-muted">
-                  {WEEKDAY_NAMES[new Date(`${selectedDate}T00:00:00Z`).getUTCDay()]}
-                </p>
-                <p className="mb-4 font-heading text-lg font-semibold text-ink">
-                  {MONTH_NAMES[month - 1]} {Number(selectedDate.slice(8, 10))}
-                </p>
+            <p className="text-xs text-muted">
+              {WEEKDAY_NAMES[new Date(`${selectedDate}T00:00:00Z`).getUTCDay()]}
+            </p>
+            <p className="mb-4 font-heading text-lg font-semibold text-ink">
+              {MONTH_NAMES[month - 1]} {Number(selectedDate.slice(8, 10))}
+            </p>
 
+            {editing || !selected ? (
+              <EntryForm
+                date={selectedDate}
+                existing={selected}
+                onSaved={(entry) => {
+                  setEntries((current) => ({ ...current, [entry.date]: entry }));
+                  setEditing(false);
+                }}
+                onCancel={selected ? () => setEditing(false) : undefined}
+              />
+            ) : (
+              <>
                 <div
                   className="mb-4 flex h-14 w-14 items-center justify-center rounded-full text-lg font-semibold text-white"
                   style={{ background: colorForMood(selected.mood_rating) }}
@@ -177,7 +193,7 @@ export function Calendar() {
                 )}
 
                 {selected.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="mb-5 flex flex-wrap gap-1.5">
                     {selected.tags.map((tag) => (
                       <span
                         key={tag}
@@ -189,9 +205,14 @@ export function Calendar() {
                     ))}
                   </div>
                 )}
+
+                <button
+                  onClick={() => setEditing(true)}
+                  className="rounded-lg border border-border-3 bg-surface px-4 py-2 text-sm font-medium text-ink-soft hover:bg-surface-2"
+                >
+                  Edit entry
+                </button>
               </>
-            ) : (
-              <p className="text-sm text-muted">No entry logged this day.</p>
             )}
           </div>
         )}
