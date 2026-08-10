@@ -16,7 +16,7 @@ export function Sidebar() {
   const { streak } = useStreak();
 
   return (
-    <aside className="flex h-screen w-[248px] shrink-0 flex-col border-r border-border-1 bg-surface px-5 py-6">
+    <aside className="sticky top-0 flex h-screen w-[248px] shrink-0 flex-col overflow-y-auto border-r border-border-1 bg-surface px-5 py-6">
       <img
         src={theme === "dark" ? "/logo-dark.png" : "/logo.png"}
         alt="Orium"
