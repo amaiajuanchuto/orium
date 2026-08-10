@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { AppLayout } from "./components/AppLayout";
+import { StreakProvider } from "./lib/StreakContext";
 import { Login } from "./views/Login";
 import { Today } from "./views/Today";
 import { Journal } from "./views/Journal";
@@ -25,17 +26,19 @@ export default function App() {
   }
 
   return (
-    <Routes>
-      <Route element={<AppLayout />}>
-        <Route index element={<Navigate to="/today" replace />} />
-        <Route path="/today" element={<Today />} />
-        <Route path="/journal" element={<Journal />} />
-        <Route path="/calendar" element={<Calendar />} />
-        <Route path="/trends" element={<Trends />} />
-        <Route path="/patterns" element={<Patterns />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="*" element={<Navigate to="/today" replace />} />
-      </Route>
-    </Routes>
+    <StreakProvider>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<Navigate to="/today" replace />} />
+          <Route path="/today" element={<Today />} />
+          <Route path="/journal" element={<Journal />} />
+          <Route path="/calendar" element={<Calendar />} />
+          <Route path="/trends" element={<Trends />} />
+          <Route path="/patterns" element={<Patterns />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="*" element={<Navigate to="/today" replace />} />
+        </Route>
+      </Routes>
+    </StreakProvider>
   );
 }

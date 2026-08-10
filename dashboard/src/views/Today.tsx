@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, type EntryWithTags, type Pattern, type SummaryResult } from "../lib/api";
 import { colorForMood } from "../lib/mood";
+import { addDays, toISODate } from "../lib/date";
+import { useStreak } from "../lib/StreakContext";
 
 const QUICK_TAGS = [
   "exercise",
@@ -16,6 +18,7 @@ const QUICK_TAGS = [
 const DOTS = Array.from({ length: 10 }, (_, i) => i + 1);
 
 export function Today() {
+  const { refreshStreak } = useStreak();
   const [existing, setExisting] = useState<EntryWithTags | null>(null);
   const [mood, setMood] = useState(7);
   const [energy, setEnergy] = useState(7);
@@ -24,10 +27,13 @@ export function Today() {
   const [tags, setTags] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [summary, setSummary] = useState<SummaryResult | null>(null);
   const [pattern, setPattern] = useState<Pattern | null>(null);
-  const [sparkline, setSparkline] = useState<EntryWithTags[]>([]);
+  const [sparkline, setSparkline] = useState<{ date: string; entry: EntryWithTags | null }[]>(
+    [],
+  );
 
   useEffect(() => {
     api.getToday().then((entry) => {
@@ -48,9 +54,19 @@ export function Today() {
       .getPatterns()
       .then((patterns) => setPattern(patterns[0] ?? null))
       .catch(() => undefined);
+    const today = new Date();
+    const from = toISODate(addDays(today, -6));
+    const to = toISODate(today);
     api
-      .listEntries({ limit: 7 })
-      .then((entries) => setSparkline([...entries].reverse()))
+      .listEntries({ from, to, limit: 7 })
+      .then((entries) => {
+        const byDate = new Map(entries.map((entry) => [entry.date, entry]));
+        const slots = Array.from({ length: 7 }, (_, i) => {
+          const date = toISODate(addDays(today, -6 + i));
+          return { date, entry: byDate.get(date) ?? null };
+        });
+        setSparkline(slots);
+      })
       .catch(() => undefined);
   }, []);
 
@@ -62,6 +78,7 @@ export function Today() {
 
   async function handleSave(): Promise<void> {
     setSaving(true);
+    setSaveError(null);
     const input = {
       date: new Date().toISOString().slice(0, 10),
       mood_rating: mood,
@@ -71,13 +88,19 @@ export function Today() {
       tags,
     };
 
-    const saved = existing
-      ? await api.updateEntry(existing.id, input)
-      : await api.getEntry((await api.createEntry(input)).id);
+    try {
+      const saved = existing
+        ? await api.updateEntry(existing.id, input)
+        : await api.getEntry((await api.createEntry(input)).id);
 
-    setExisting(saved);
-    setSaving(false);
-    setSavedAt(Date.now());
+      setExisting(saved);
+      refreshStreak();
+      setSavedAt(Date.now());
+    } catch {
+      setSaveError("Couldn't save — please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -177,7 +200,12 @@ export function Today() {
         >
           {saving ? "Saving…" : existing ? "Update entry" : "Save entry"}
         </button>
-        {savedAt && <span className="ml-3 text-sm text-muted">Saved.</span>}
+        {savedAt && !saveError && (
+          <span className="ml-3 text-sm text-muted">Saved.</span>
+        )}
+        {saveError && (
+          <span className="ml-3 text-sm text-red-600">{saveError}</span>
+        )}
       </section>
 
       <aside className="flex flex-col gap-5">
@@ -211,15 +239,15 @@ export function Today() {
               Last 7 days
             </p>
             <div className="flex h-24 items-end gap-2">
-              {sparkline.map((entry) => (
+              {sparkline.map(({ date, entry }) => (
                 <div
-                  key={entry.id}
+                  key={date}
                   className="flex-1 rounded-t-md"
                   style={{
-                    height: `${(entry.mood_rating / 10) * 100}%`,
-                    background: colorForMood(entry.mood_rating),
+                    height: entry ? `${(entry.mood_rating / 10) * 100}%` : "6%",
+                    background: colorForMood(entry?.mood_rating),
                   }}
-                  title={`${entry.date}: mood ${entry.mood_rating}`}
+                  title={entry ? `${date}: mood ${entry.mood_rating}` : `${date}: no entry`}
                 />
               ))}
             </div>

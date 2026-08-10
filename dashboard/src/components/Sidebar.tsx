@@ -1,8 +1,7 @@
 import { NavLink } from "react-router-dom";
-import { useEffect, useState } from "react";
 import { useTheme } from "../lib/ThemeContext";
 import { useAuth } from "../auth/AuthContext";
-import { api, type StreakResult } from "../lib/api";
+import { useStreak } from "../lib/StreakContext";
 
 const NAV_ITEMS = [
   { to: "/today", label: "Today" },
@@ -16,14 +15,7 @@ const NAV_ITEMS = [
 export function Sidebar() {
   const { theme, setTheme } = useTheme();
   const { signOut } = useAuth();
-  const [streak, setStreak] = useState<StreakResult | null>(null);
-
-  useEffect(() => {
-    api
-      .getStreak()
-      .then(setStreak)
-      .catch(() => undefined);
-  }, []);
+  const { streak } = useStreak();
 
   return (
     <aside className="flex h-screen w-[248px] shrink-0 flex-col border-r border-border-1 bg-surface px-5 py-6">
