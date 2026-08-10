@@ -1,6 +1,5 @@
 import { NavLink } from "react-router-dom";
 import { useTheme } from "../lib/ThemeContext";
-import { useAuth } from "../auth/AuthContext";
 import { useStreak } from "../lib/StreakContext";
 
 const NAV_ITEMS = [
@@ -14,7 +13,6 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const { theme, setTheme } = useTheme();
-  const { signOut } = useAuth();
   const { streak } = useStreak();
 
   return (
@@ -67,7 +65,7 @@ export function Sidebar() {
       </nav>
 
       {streak && (
-        <div className="mb-3 rounded-xl border border-border-1 bg-surface-2 p-4">
+        <div className="rounded-xl border border-border-1 bg-surface-2 p-4">
           <div className="font-heading text-2xl font-bold text-ink">
             {streak.current_streak}{" "}
             <span className="text-sm font-normal text-muted">day streak</span>
@@ -77,13 +75,6 @@ export function Sidebar() {
           </p>
         </div>
       )}
-
-      <button
-        onClick={() => void signOut()}
-        className="text-left text-xs text-muted hover:text-ink"
-      >
-        Log out
-      </button>
     </aside>
   );
 }
