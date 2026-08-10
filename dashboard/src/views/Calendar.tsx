@@ -80,8 +80,7 @@ export function Calendar() {
       </div>
 
       <div
-        className="grid gap-6"
-        style={{ gridTemplateColumns: selectedDate ? "1.7fr 1fr" : "1fr" }}
+        className={`grid grid-cols-1 gap-6 ${selectedDate ? "lg:grid-cols-[1.7fr_1fr]" : ""}`}
       >
         <div className="rounded-2xl border border-border-1 bg-surface p-5">
           <div className="mb-2 grid grid-cols-7 gap-2 text-center text-xs font-medium text-muted">
@@ -130,18 +129,6 @@ export function Calendar() {
                 </button>
               );
             })}
-          </div>
-
-          <div className="mt-4 flex items-center gap-2 text-xs text-muted">
-            <span>Low</span>
-            <div
-              className="h-2 flex-1 max-w-[160px] rounded-full"
-              style={{
-                background:
-                  "linear-gradient(to right, rgb(176,74,52), rgb(217,164,65), rgb(126,157,77))",
-              }}
-            />
-            <span>High</span>
           </div>
         </div>
 

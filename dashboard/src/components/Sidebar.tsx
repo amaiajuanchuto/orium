@@ -11,70 +11,91 @@ const NAV_ITEMS = [
   { to: "/profile", label: "Profile" },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  /** Whether the mobile off-canvas drawer is open. Ignored at the `lg` breakpoint and up. */
+  open: boolean;
+  onClose: () => void;
+}
+
+export function Sidebar({ open, onClose }: SidebarProps) {
   const { theme, setTheme } = useTheme();
   const { streak } = useStreak();
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[248px] shrink-0 flex-col overflow-y-auto border-r border-border-1 bg-surface px-5 py-6">
-      <img
-        src={theme === "dark" ? "/logo-dark.png" : "/logo.png"}
-        alt="Orium"
-        className="mb-6 h-8 w-auto object-contain object-left"
-      />
-
-      <div className="mb-6 flex rounded-full border border-border-3 bg-surface-2 p-1 text-sm">
-        <button
-          onClick={() => setTheme("light")}
-          className="flex-1 rounded-full py-1 transition"
-          style={{
-            background: theme === "light" ? "var(--surface)" : "transparent",
-            color: theme === "light" ? "var(--ink)" : "var(--muted)",
-          }}
-        >
-          Light
-        </button>
-        <button
-          onClick={() => setTheme("dark")}
-          className="flex-1 rounded-full py-1 transition"
-          style={{
-            background: theme === "dark" ? "var(--surface)" : "transparent",
-            color: theme === "dark" ? "var(--ink)" : "var(--muted)",
-          }}
-        >
-          Dark
-        </button>
-      </div>
-
-      <nav className="flex flex-1 flex-col gap-1">
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `rounded-lg px-3 py-2 text-sm font-medium transition ${
-                isActive
-                  ? "bg-nav-active text-ink"
-                  : "text-nav-ink hover:bg-nav-active/60"
-              }`
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
-
-      {streak && (
-        <div className="rounded-xl border border-border-1 bg-surface-2 p-4">
-          <div className="font-heading text-2xl font-bold text-ink">
-            {streak.current_streak}{" "}
-            <span className="text-sm font-normal text-muted">day streak</span>
-          </div>
-          <p className="mt-1 text-xs text-faint">
-            Nice rhythm — your longest is {streak.longest_streak} days.
-          </p>
-        </div>
+    <>
+      {open && (
+        <div
+          onClick={onClose}
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          aria-hidden="true"
+        />
       )}
-    </aside>
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex h-screen w-[248px] shrink-0 flex-col overflow-y-auto border-r border-border-1 bg-surface px-5 py-6 transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <img
+          src={theme === "dark" ? "/logo-dark.png" : "/logo.png"}
+          alt="Orium"
+          className="mb-6 h-8 w-auto object-contain object-left"
+        />
+
+        <div className="mb-6 flex rounded-full border border-border-3 bg-surface-2 p-1 text-sm">
+          <button
+            onClick={() => setTheme("light")}
+            className="flex-1 rounded-full py-1 transition"
+            style={{
+              background: theme === "light" ? "var(--surface)" : "transparent",
+              color: theme === "light" ? "var(--ink)" : "var(--muted)",
+            }}
+          >
+            Light
+          </button>
+          <button
+            onClick={() => setTheme("dark")}
+            className="flex-1 rounded-full py-1 transition"
+            style={{
+              background: theme === "dark" ? "var(--surface)" : "transparent",
+              color: theme === "dark" ? "var(--ink)" : "var(--muted)",
+            }}
+          >
+            Dark
+          </button>
+        </div>
+
+        <nav className="flex flex-1 flex-col gap-1">
+          {NAV_ITEMS.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              onClick={onClose}
+              className={({ isActive }) =>
+                `rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  isActive
+                    ? "bg-nav-active text-ink"
+                    : "text-nav-ink hover:bg-nav-active/60"
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        {streak && (
+          <div className="rounded-xl border border-border-1 bg-surface-2 p-4">
+            <div className="font-heading text-2xl font-bold text-ink">
+              {streak.current_streak}{" "}
+              <span className="text-sm font-normal text-muted">day streak</span>
+            </div>
+            <p className="mt-1 text-xs text-faint">
+              Nice rhythm — your longest is {streak.longest_streak} days.
+            </p>
+          </div>
+        )}
+      </aside>
+    </>
   );
 }
