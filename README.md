@@ -2,7 +2,7 @@
 
 **Orium is an MCP server for mental health journaling.** Track your mood, energy, sleep, and thoughts by just talking to Claude; no app to open, no form to fill out. Entries are stored in a Postgres database (Supabase), so your journal persists across machines and sessions. Multiple people can use the same deployment — each account's entries are private to them.
 
-🔗 **[Try the live dashboard](https://orium-mcp.onrender.com)** — sign up for your own free account. (Hosted on Render's free tier, so the first load after a period of inactivity can take 30–60s to spin up.)
+🔗 **[Try the live dashboard](https://orium-mcp.onrender.com)** — sign up for your own free account.
 
 ```
 You:    Log today — mood 7, energy 6, slept 7.5 hours, feeling good after the gym
@@ -82,7 +82,7 @@ This repo includes a [`render.yaml`](render.yaml) blueprint:
 1. Push your fork to GitHub.
 2. On [Render](https://render.com), **New + → Blueprint**, connect your GitHub account, and select your fork.
 3. Render reads `render.yaml` and prompts you for the secret env var (`DATABASE_URL`) — paste in your Supabase pooler connection string. Update `SUPABASE_URL` and `PUBLIC_URL` in the blueprint (or the dashboard afterward) to match your own project and deployed URL.
-4. Deploy. The free instance type works, with one caveat: it spins down after 15 minutes of inactivity, so the first request after an idle period will be slow (30-60s) or may time out in your MCP client.
+4. Deploy.
 
 Any other host that runs a persistent Node process works too — the blueprint is just the fastest path.
 

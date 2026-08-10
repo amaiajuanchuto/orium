@@ -2,7 +2,7 @@ services:
   - type: web
     name: orium
     runtime: node
-    plan: free
+    plan: starter
     buildCommand: npm install && npm run build --workspace=server
     startCommand: npm run start --workspace=server
     healthCheckPath: /health
