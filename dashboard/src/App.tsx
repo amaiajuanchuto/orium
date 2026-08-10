@@ -4,6 +4,7 @@ import { AppLayout } from "./components/AppLayout";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { StreakProvider } from "./lib/StreakContext";
 import { Login } from "./views/Login";
+import { ResetPassword } from "./views/ResetPassword";
 import { Today } from "./views/Today";
 import { Journal } from "./views/Journal";
 import { Calendar } from "./views/Calendar";
@@ -12,7 +13,7 @@ import { Patterns } from "./views/Patterns";
 import { Profile } from "./views/Profile";
 
 export default function App() {
-  const { session, loading } = useAuth();
+  const { session, loading, recoveryMode } = useAuth();
 
   if (loading) {
     return (
@@ -20,6 +21,10 @@ export default function App() {
         <LoadingScreen />
       </div>
     );
+  }
+
+  if (recoveryMode) {
+    return <ResetPassword />;
   }
 
   if (!session) {
