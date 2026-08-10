@@ -31,7 +31,9 @@ export function registerCreateEntryTool(
     {
       title: "Create journal entry",
       description:
-        "Create a new mental health journal entry with mood, energy, sleep, and notes.",
+        "Create a mental health journal entry with mood, energy, sleep, and notes. " +
+        "If an entry already exists for that date, it's replaced with these values " +
+        "rather than creating a duplicate.",
       inputSchema: createEntryInputSchema,
     },
     async (input) => {

@@ -54,12 +54,17 @@ async function getTagsForEntry(
 }
 
 /**
- * Creates a new journal entry (optionally linking it to one or more tags,
- * created on demand) and returns the persisted row.
+ * Creates a journal entry for a date (optionally linking it to one or more
+ * tags, created on demand) and returns the persisted row. A user can only
+ * have one entry per date (enforced by a unique constraint): calling this
+ * again for a date that already has an entry replaces its mood/energy/
+ * sleep/notes with the new values rather than erroring or creating a
+ * duplicate. A provided `tags` array fully replaces the entry's existing
+ * tags; omitting `tags` leaves them untouched.
  *
  * @param sql - Open database connection.
  * @param userId - The authenticated user's id.
- * @param input - The new entry's fields.
+ * @param input - The entry's fields.
  * @returns The persisted entry row (without a `tags` field).
  */
 export async function createEntry(
@@ -71,17 +76,26 @@ export async function createEntry(
     const [row] = await tx<Entry[]>`
       INSERT INTO entries (user_id, date, mood_rating, energy_level, sleep_hours, notes)
       VALUES (${userId}, ${input.date}, ${input.mood_rating}, ${input.energy_level}, ${input.sleep_hours ?? null}, ${input.notes ?? null})
+      ON CONFLICT (user_id, date) DO UPDATE SET
+        mood_rating = EXCLUDED.mood_rating,
+        energy_level = EXCLUDED.energy_level,
+        sleep_hours = EXCLUDED.sleep_hours,
+        notes = EXCLUDED.notes
       RETURNING *
     `;
     const entryId = row!.id;
 
-    for (const tagName of input.tags ?? []) {
-      const tagId = await upsertTag(tx, tagName);
-      await tx`
-        INSERT INTO entry_tags (entry_id, tag_id)
-        VALUES (${entryId}, ${tagId})
-        ON CONFLICT DO NOTHING
-      `;
+    if (input.tags !== undefined) {
+      await tx`DELETE FROM entry_tags WHERE entry_id = ${entryId}`;
+
+      for (const tagName of input.tags) {
+        const tagId = await upsertTag(tx, tagName);
+        await tx`
+          INSERT INTO entry_tags (entry_id, tag_id)
+          VALUES (${entryId}, ${tagId})
+          ON CONFLICT DO NOTHING
+        `;
+      }
     }
 
     return row!;

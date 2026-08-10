@@ -137,7 +137,7 @@ Once connected, just talk to Claude naturally; it picks the right tool for you.
 
 | Tool              | Description                                                                                                                 |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `create_entry`    | Create a new journal entry (mood, energy, sleep, notes, tags)                                                               |
+| `create_entry`    | Create a journal entry (mood, energy, sleep, notes, tags); replaces the existing entry if one already exists for that date  |
 | `list_entries`    | List entries, filterable by date range, mood/energy range, or tag                                                           |
 | `update_entry`    | Partially update an entry by id; replaces tags if provided                                                                  |
 | `delete_entry`    | Delete an entry by id (destructive)                                                                                         |
@@ -155,7 +155,7 @@ Alongside the MCP tools, Orium exposes a REST API at `/api/v1` — the same core
 | Method   | Path                   | Description                                                 |
 | -------- | ---------------------- | ----------------------------------------------------------- |
 | `GET`    | `/entries`             | List entries (same filters as `list_entries`)               |
-| `POST`   | `/entries`             | Create an entry — `201` on success                          |
+| `POST`   | `/entries`             | Create an entry, or replace the existing one for that date — `201` |
 | `GET`    | `/entries/:id`         | Fetch a single entry — `404` if not found                   |
 | `PATCH`  | `/entries/:id`         | Partially update an entry — `404` if not found              |
 | `DELETE` | `/entries/:id`         | Delete an entry — `404` if not found                        |

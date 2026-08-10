@@ -90,6 +90,45 @@ describe("create_entry tool", () => {
     expect(tagNames).toEqual(["grateful", "tired"]);
   });
 
+  it("replaces the existing entry when called again for the same date", async () => {
+    await client.callTool({
+      name: "create_entry",
+      arguments: {
+        date: "2026-07-23",
+        mood_rating: 5,
+        energy_level: 5,
+        tags: ["tired"],
+      },
+    });
+
+    const result = await client.callTool({
+      name: "create_entry",
+      arguments: {
+        date: "2026-07-23",
+        mood_rating: 8,
+        energy_level: 7,
+        tags: ["calm"],
+      },
+    });
+
+    const content = result.content as Array<{ type: string; text: string }>;
+    const entry = JSON.parse(content[0]!.text);
+    expect(entry).toMatchObject({ mood_rating: 8, energy_level: 7 });
+
+    const rows = await sql`SELECT * FROM entries WHERE date = '2026-07-23'`;
+    expect(rows).toHaveLength(1);
+
+    const tagNames = (
+      await sql<{ name: string }[]>`
+        SELECT t.name FROM tags t
+        JOIN entry_tags et ON et.tag_id = t.id
+        WHERE et.entry_id = ${entry.id}
+        ORDER BY t.name
+      `
+    ).map((r) => r.name);
+    expect(tagNames).toEqual(["calm"]);
+  });
+
   it("rejects an out-of-range mood_rating", async () => {
     const result = await client.callTool({
       name: "create_entry",
