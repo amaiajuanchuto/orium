@@ -4,31 +4,12 @@ import { colorForMood } from "../lib/mood";
 import { addDays, toISODate } from "../lib/date";
 import { useStreak } from "../lib/StreakContext";
 import { LoadingScreen } from "../components/LoadingScreen";
-
-const QUICK_TAGS = [
-  "exercise",
-  "work",
-  "social",
-  "coffee",
-  "reading",
-  "outdoors",
-  "anxious",
-  "calm",
-];
-
-const DOTS = Array.from({ length: 10 }, (_, i) => i + 1);
+import { EntryForm } from "../components/EntryForm";
 
 export function Today() {
   const { refreshStreak } = useStreak();
   const [existing, setExisting] = useState<EntryWithTags | null>(null);
-  const [mood, setMood] = useState(7);
-  const [energy, setEnergy] = useState(7);
-  const [sleep, setSleep] = useState("");
-  const [notes, setNotes] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const [summary, setSummary] = useState<SummaryResult | null>(null);
   const [pattern, setPattern] = useState<Pattern | null>(null);
@@ -37,22 +18,15 @@ export function Today() {
   >([]);
   const [loading, setLoading] = useState(true);
 
+  const today = toISODate(new Date());
+
   useEffect(() => {
-    const today = new Date();
-    const from = toISODate(addDays(today, -6));
-    const to = toISODate(today);
+    const now = new Date();
+    const from = toISODate(addDays(now, -6));
+    const to = toISODate(now);
 
     Promise.all([
-      api.getToday().then((entry) => {
-        if (entry) {
-          setExisting(entry);
-          setMood(entry.mood_rating);
-          setEnergy(entry.energy_level);
-          setSleep(entry.sleep_hours != null ? String(entry.sleep_hours) : "");
-          setNotes(entry.notes ?? "");
-          setTags(entry.tags);
-        }
-      }),
+      api.getToday().then(setExisting),
       api
         .getSummary("week")
         .then(setSummary)
@@ -66,7 +40,7 @@ export function Today() {
         .then((entries) => {
           const byDate = new Map(entries.map((entry) => [entry.date, entry]));
           const slots = Array.from({ length: 7 }, (_, i) => {
-            const date = toISODate(addDays(today, -6 + i));
+            const date = toISODate(addDays(now, -6 + i));
             return { date, entry: byDate.get(date) ?? null };
           });
           setSparkline(slots);
@@ -75,37 +49,10 @@ export function Today() {
     ]).finally(() => setLoading(false));
   }, []);
 
-  function toggleTag(tag: string): void {
-    setTags((current) =>
-      current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag],
-    );
-  }
-
-  async function handleSave(): Promise<void> {
-    setSaving(true);
-    setSaveError(null);
-    const input = {
-      date: new Date().toISOString().slice(0, 10),
-      mood_rating: mood,
-      energy_level: energy,
-      sleep_hours: sleep ? Number(sleep) : undefined,
-      notes: notes || undefined,
-      tags,
-    };
-
-    try {
-      const saved = existing
-        ? await api.updateEntry(existing.id, input)
-        : await api.getEntry((await api.createEntry(input)).id);
-
-      setExisting(saved);
-      refreshStreak();
-      setSavedAt(Date.now());
-    } catch {
-      setSaveError("Couldn't save — please try again.");
-    } finally {
-      setSaving(false);
-    }
+  function handleSaved(entry: EntryWithTags): void {
+    setExisting(entry);
+    setEditing(false);
+    refreshStreak();
   }
 
   if (loading) return <LoadingScreen />;
@@ -124,91 +71,59 @@ export function Today() {
           })}
         </p>
 
-        <label className="mb-2 block text-sm font-medium text-ink-soft">Mood</label>
-        <div className="mb-5 flex gap-2">
-          {DOTS.map((d) => (
-            <button
-              key={d}
-              onClick={() => setMood(d)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition"
-              style={{
-                background: d === mood ? colorForMood(d) : "var(--field)",
-                borderColor: d === mood ? colorForMood(d) : "var(--border-2)",
-                color: d === mood ? "#fff" : "var(--muted)",
-                transform: d === mood ? "scale(1.15)" : undefined,
-              }}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
-
-        <label className="mb-2 block text-sm font-medium text-ink-soft">Energy</label>
-        <div className="mb-5 flex gap-1.5">
-          {DOTS.map((d) => (
-            <button
-              key={d}
-              onClick={() => setEnergy(d)}
-              className="h-6 flex-1 rounded-md border transition"
-              style={{
-                background: d <= energy ? "var(--accent)" : "var(--field)",
-                borderColor: d <= energy ? "var(--accent)" : "var(--border-2)",
-              }}
-            />
-          ))}
-        </div>
-
-        <label className="mb-2 block text-sm font-medium text-ink-soft">
-          Sleep (hours)
-        </label>
-        <input
-          type="number"
-          step="0.5"
-          min="0"
-          max="24"
-          value={sleep}
-          onChange={(e) => setSleep(e.target.value)}
-          className="mb-5 w-32 rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
-        />
-
-        <label className="mb-2 block text-sm font-medium text-ink-soft">Tags</label>
-        <div className="mb-5 flex flex-wrap gap-2">
-          {QUICK_TAGS.map((tag) => {
-            const active = tags.includes(tag);
-            return (
-              <button
-                key={tag}
-                onClick={() => toggleTag(tag)}
-                className="rounded-full border px-3 py-1 text-sm transition"
-                style={{
-                  background: active ? "var(--accent)" : "var(--chip)",
-                  borderColor: active ? "var(--accent)" : "var(--border-3)",
-                  color: active ? "var(--on-accent)" : "var(--chip-ink)",
-                }}
+        {existing && !editing ? (
+          <div>
+            <div className="mb-5 flex items-center gap-4">
+              <div
+                className="flex h-14 w-14 items-center justify-center rounded-full text-lg font-semibold text-white"
+                style={{ background: colorForMood(existing.mood_rating) }}
               >
-                {tag}
-              </button>
-            );
-          })}
-        </div>
+                {existing.mood_rating}
+              </div>
+              <div>
+                <p className="font-heading font-semibold text-ink">
+                  Today's entry is logged ✓
+                </p>
+                <p className="text-sm text-muted">
+                  Energy {existing.energy_level}
+                  {existing.sleep_hours != null && ` · Sleep ${existing.sleep_hours}h`}
+                </p>
+              </div>
+            </div>
 
-        <label className="mb-2 block text-sm font-medium text-ink-soft">Notes</label>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={4}
-          className="mb-6 w-full rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
-        />
+            {existing.notes && (
+              <p className="mb-4 text-sm text-ink-soft">{existing.notes}</p>
+            )}
 
-        <button
-          onClick={() => void handleSave()}
-          disabled={saving}
-          className="rounded-lg bg-accent px-5 py-2 font-semibold text-on-accent transition hover:bg-accent-dark disabled:opacity-60"
-        >
-          {saving ? "Saving…" : existing ? "Update entry" : "Save entry"}
-        </button>
-        {savedAt && !saveError && <span className="ml-3 text-sm text-muted">Saved.</span>}
-        {saveError && <span className="ml-3 text-sm text-red-600">{saveError}</span>}
+            {existing.tags.length > 0 && (
+              <div className="mb-5 flex flex-wrap gap-1.5">
+                {existing.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full px-2.5 py-0.5 text-xs"
+                    style={{ background: "var(--chip)", color: "var(--chip-ink)" }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setEditing(true)}
+              className="rounded-lg border border-border-3 bg-surface px-4 py-2 text-sm font-medium text-ink-soft hover:bg-surface-2"
+            >
+              Update entry
+            </button>
+          </div>
+        ) : (
+          <EntryForm
+            date={today}
+            existing={existing}
+            onSaved={handleSaved}
+            onCancel={existing ? () => setEditing(false) : undefined}
+          />
+        )}
       </section>
 
       <aside className="flex flex-col gap-5">
