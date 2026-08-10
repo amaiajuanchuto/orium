@@ -27,8 +27,8 @@ interface EntryFormProps {
 }
 
 export function EntryForm({ date, existing, onSaved, onCancel }: EntryFormProps) {
-  const [mood, setMood] = useState(existing?.mood_rating ?? 7);
-  const [energy, setEnergy] = useState(existing?.energy_level ?? 7);
+  const [mood, setMood] = useState<number | null>(existing?.mood_rating ?? null);
+  const [energy, setEnergy] = useState<number | null>(existing?.energy_level ?? null);
   const [sleep, setSleep] = useState(
     existing?.sleep_hours != null ? String(existing.sleep_hours) : "",
   );
@@ -37,6 +37,8 @@ export function EntryForm({ date, existing, onSaved, onCancel }: EntryFormProps)
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const canSave = mood !== null && energy !== null;
+
   function toggleTag(tag: string): void {
     setTags((current) =>
       current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag],
@@ -44,6 +46,8 @@ export function EntryForm({ date, existing, onSaved, onCancel }: EntryFormProps)
   }
 
   async function handleSave(): Promise<void> {
+    if (mood === null || energy === null) return;
+
     setSaving(true);
     setError(null);
     const input = {
@@ -90,17 +94,20 @@ export function EntryForm({ date, existing, onSaved, onCancel }: EntryFormProps)
 
       <label className="mb-2 block text-sm font-medium text-ink-soft">Energy</label>
       <div className="mb-5 flex gap-1.5">
-        {DOTS.map((d) => (
-          <button
-            key={d}
-            onClick={() => setEnergy(d)}
-            className="h-6 flex-1 rounded-md border transition"
-            style={{
-              background: d <= energy ? colorForMood(energy) : "var(--field)",
-              borderColor: d <= energy ? colorForMood(energy) : "var(--border-2)",
-            }}
-          />
-        ))}
+        {DOTS.map((d) => {
+          const filled = energy !== null && d <= energy;
+          return (
+            <button
+              key={d}
+              onClick={() => setEnergy(d)}
+              className="h-6 flex-1 rounded-md border transition"
+              style={{
+                background: filled ? colorForMood(energy) : "var(--field)",
+                borderColor: filled ? colorForMood(energy) : "var(--border-2)",
+              }}
+            />
+          );
+        })}
       </div>
 
       <label className="mb-2 block text-sm font-medium text-ink-soft">
@@ -148,7 +155,7 @@ export function EntryForm({ date, existing, onSaved, onCancel }: EntryFormProps)
       <div className="flex items-center gap-3">
         <button
           onClick={() => void handleSave()}
-          disabled={saving}
+          disabled={saving || !canSave}
           className="rounded-lg bg-accent px-5 py-2 font-semibold text-on-accent transition hover:bg-accent-dark disabled:opacity-60"
         >
           {saving ? "Saving…" : existing ? "Update entry" : "Save entry"}
@@ -160,6 +167,9 @@ export function EntryForm({ date, existing, onSaved, onCancel }: EntryFormProps)
           >
             Cancel
           </button>
+        )}
+        {!canSave && !error && (
+          <span className="text-sm text-muted">Pick a mood and energy first.</span>
         )}
         {error && <span className="text-sm text-red-600">{error}</span>}
       </div>
