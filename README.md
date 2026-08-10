@@ -22,7 +22,7 @@ Claude: Your mood is up 12% vs. last month, and you're on a 9-day logging streak
 
 ## Installation
 
-Orium isn't published to npm yet, so install it from source:
+Orium isn't published to npm yet, so install it from source. This is an npm workspaces monorepo — [`server/`](server) (the MCP + REST API) and [`dashboard/`](dashboard) (the web UI) are independent packages, but one `npm install` at the root sets both up:
 
 ```bash
 git clone https://github.com/amaiajuanchuto/orium-mcp.git
@@ -31,12 +31,12 @@ npm install
 npm run build
 ```
 
-This produces a runnable server at `dist/index.js`.
+This compiles the server to `server/dist/index.js` and the dashboard to `dashboard/dist/`; the server serves the built dashboard as static files, so `npm start` alone runs both.
 
 ### Set up the database
 
 1. Create a Supabase project (or use any Postgres instance).
-2. Apply the schema in [`supabase/migrations`](supabase/migrations) — via the Supabase CLI (`supabase db push`) or by running the SQL directly against your database.
+2. Apply the schema in [`server/supabase/migrations`](server/supabase/migrations) — via the Supabase CLI (`supabase db push`) or by running the SQL directly against your database.
 3. Grab a connection string from your project's Database settings — use the **Transaction pooler** connection (port `6543`), not the direct connection (port `5432`). Many hosts (Render included) don't support outbound IPv6, and Supabase's direct connection is IPv6-only in most regions; the pooler is IPv4-compatible and avoids a confusing `ENETUNREACH` at runtime.
 
 ### Set up Supabase OAuth
@@ -51,7 +51,7 @@ To enable OAuth on your own Supabase project:
 4. Decide whether to allow public sign-up (**Authentication → Sign In / Providers → "Allow new users to sign up"**). Each account's journal is private (enforced by `user_id` scoping and Postgres Row Level Security), so multiple people can safely share one deployment — leave sign-up on if you want that, or turn it off and create accounts yourself via **Authentication → Users → Add user** if you'd rather control who can join.
 5. Create your own login the same way (**Authentication → Users → Add user**) if sign-up is off.
 
-The login (`/login`) and consent (`/oauth/consent`) pages Supabase redirects to for this flow are served by Orium itself — see [`public/`](public) — since Supabase's OAuth Server doesn't host its own consent UI.
+The login (`/login`) and consent (`/oauth/consent`) pages Supabase redirects to for this flow are served by Orium itself — see [`server/public/`](server/public) — since Supabase's OAuth Server doesn't host its own consent UI.
 
 ### Run the server
 
@@ -89,6 +89,12 @@ Any other host that runs a persistent Node process works too — the blueprint i
 - **claude.ai (web and mobile)**: Settings → Connectors → Add custom connector → enter `https://your-app.onrender.com/mcp` as the URL, leave the OAuth Client ID/Secret fields blank. Approving the connection walks you through Supabase login and consent. Once added, it's available from the Claude mobile app too, since connectors are tied to your account, not a device.
 - **Claude Code**: connectors added on claude.ai sync automatically into the CLI when signed in with the same account. To add it directly instead: `claude mcp add orium --transport http https://your-app.onrender.com/mcp`, then run `/mcp` inside a session and choose **Authenticate**.
 - **Claude Desktop**: consult Claude Desktop's current docs for adding a remote/HTTP MCP server — this is evolving faster than most other parts of the MCP spec.
+
+### Dashboard
+
+Orium also ships a web dashboard — a visual alternative to chatting with Claude, for logging entries and browsing your history/trends. It's a React SPA (see [`dashboard/`](dashboard)) built and served as static files from the same server, so no separate deployment or CORS setup is needed: once the server is running, the dashboard is available at its root URL (e.g. `https://your-app.onrender.com/`). It authenticates the same way as everything else — Supabase login, same account, same private data.
+
+Views: **Today** (log/edit today's entry), **Journal** (search/browse past entries), **Calendar** (month view with mood-colored days), **Trends** (mood/energy over time), **Patterns** (correlations with sleep, day of week, and tags), **Profile** (optional lifestyle context — work, exercise, diet, etc. — to help Orium notice more meaningful patterns).
 
 ### Where your data goes
 
@@ -144,7 +150,7 @@ Once connected, just talk to Claude naturally; it picks the right tool for you.
 
 ## REST API
 
-Alongside the MCP tools, Orium exposes a REST API at `/api/v1` — the same core logic, for building a UI (like a future dashboard) on top of instead of chatting with Claude. Authenticate the same way as `/mcp`: `Authorization: Bearer <Supabase access token>`.
+Alongside the MCP tools, Orium exposes a REST API at `/api/v1` — the same core logic, used by the [dashboard](#dashboard) and available for building any other UI on top of instead of chatting with Claude. Authenticate the same way as `/mcp`: `Authorization: Bearer <Supabase access token>`.
 
 | Method   | Path                   | Description                                                 |
 | -------- | ---------------------- | ----------------------------------------------------------- |
@@ -159,82 +165,99 @@ Alongside the MCP tools, Orium exposes a REST API at `/api/v1` — the same core
 | `GET`    | `/summary?period=`     | `week` or `month` — full period review, or `null`           |
 | `GET`    | `/mood-trends?period=` | `week`, `month`, or `quarter` — trend comparison, or `null` |
 | `GET`    | `/patterns`            | Mood correlations — `[]` if not enough data                 |
+| `GET`    | `/profile`             | The user's lifestyle profile, or `null` if not set up yet   |
+| `PUT`    | `/profile`             | Create/update the profile — only provided fields change     |
 
 Invalid input returns `400` with `{ error: "Validation failed", issues: [...] }` (zod's issue list). Every query is scoped to the authenticated user, same as the MCP tools.
 
 ## Database schema
 
-Three tables, defined in [`supabase/migrations`](supabase/migrations):
+Four tables, defined in [`server/supabase/migrations`](server/supabase/migrations):
 
 - **entries** — one row per journal entry (`user_id`, `date`, `mood_rating` and `energy_level` 1–10, `sleep_hours`, `notes`, timestamps; `updated_at` is refreshed automatically by a trigger). Every query is scoped to the authenticated user's own `user_id`, and Row Level Security policies enforce the same boundary at the database level.
 - **tags** — a shared, global vocabulary (not per-user) — seeded with ~80 common journaling tags, and anyone can add more on the fly, same as before
 - **entry_tags** — many-to-many join between entries and tags, with cascading deletes
+- **profiles** — one row per user, optional lifestyle context (name, pronouns, work, exercise, diet, hobbies, free-text note) shown/edited in the dashboard's Profile view; same `user_id` scoping and RLS as `entries`
 
 ## Scripts
 
-| Command                | Description                              |
-| ---------------------- | ---------------------------------------- |
-| `npm run dev`          | Run the server directly with `tsx`       |
-| `npm run build`        | Compile TypeScript to `dist/`            |
-| `npm start`            | Run the compiled server from `dist/`     |
-| `npm test`             | Run the Vitest test suite once           |
-| `npm run test:watch`   | Run tests in watch mode                  |
-| `npm run lint`         | Lint the project with ESLint             |
-| `npm run lint:fix`     | Lint and auto-fix                        |
-| `npm run format`       | Format the project with Prettier         |
-| `npm run format:check` | Check formatting without writing changes |
+Run from the repo root — these delegate to the `server` (and, for `lint`, `dashboard`) workspace:
+
+| Command                 | Description                                                |
+| ------------------------ | ------------------------------------------------------------ |
+| `npm run dev`           | Run the server directly with `tsx`                          |
+| `npm run build`         | Compile the server and build the dashboard                  |
+| `npm start`             | Run the compiled server (which also serves the dashboard)   |
+| `npm test`              | Run the server's Vitest suite once                          |
+| `npm run lint`          | Lint both the server (ESLint) and dashboard (oxlint)         |
+| `npm run format`        | Format the whole repo with Prettier                         |
+| `npm run format:check`  | Check formatting without writing changes                    |
+
+For dashboard-only work (dev server with hot reload), `cd dashboard && npm run dev`.
 
 ## Project structure
 
+An npm workspaces monorepo — `server/` and `dashboard/` are independent packages (each with their own `package.json`), deployed together today as one Render service but structured so either could be split into its own repo/deployment later without untangling shared dependencies first.
+
 ```
-supabase/
-  migrations/          # schema (source of truth), applied via the Supabase CLI/MCP
-public/
-  login.html           # Supabase Auth login page (for the OAuth consent flow)
-  oauth-consent.html    # OAuth authorization consent screen
-src/
-  core/
-    entries.ts           # entry CRUD/query logic, shared by MCP tools and the REST API
-    insights.ts           # streak/summary/trends/patterns logic, same sharing
-  api/
-    router.ts             # REST API (/api/v1) built on src/core
-    router.test.ts
-  db/
-    connection.ts       # opens the Postgres connection
-    connection.test.ts
-    types.ts             # shared Entry / EntryWithTags types
-    validation.ts         # shared zod schemas (e.g. dateSchema)
-    tags.ts                # tag upsert helper
-    dates.ts                 # shared date helpers (toISODate, addDays, round)
-    streak.ts                 # shared streak calculation
-    testUser.ts                # test-only fake Supabase Auth user helper
-  tools/
-    createEntry.ts
-    listEntries.ts
-    updateEntry.ts
-    deleteEntry.ts
-    getToday.ts
-    searchEntries.ts
-    getMoodTrends.ts
-    getPatterns.ts
-    getStreak.ts
-    getSummary.ts
-    *.test.ts          # one test file per tool
-  registerTools.ts     # registers all 10 tools on an McpServer instance
-  auth.ts               # Supabase OAuth token verification, shared by MCP + API
-  index.ts             # HTTP server entry point: transport, auth, OAuth metadata
+server/                  # MCP server + REST API (Node/Express)
+  supabase/
+    migrations/          # schema (source of truth), applied via the Supabase CLI/MCP
+  public/
+    login.html           # Supabase Auth login page (for the OAuth consent flow)
+    oauth-consent.html   # OAuth authorization consent screen
+  scripts/                # backup/restore utilities (see BACKUP_PASSPHRASE usage)
+  src/
+    core/
+      entries.ts          # entry CRUD/query logic, shared by MCP tools and the REST API
+      insights.ts         # streak/summary/trends/patterns logic, same sharing
+      profile.ts          # profile get/upsert logic, same sharing
+    api/
+      router.ts           # REST API (/api/v1) built on src/core
+      router.test.ts
+    db/
+      connection.ts       # opens the Postgres connection
+      connection.test.ts
+      types.ts            # shared Entry / EntryWithTags / Profile types
+      validation.ts       # shared zod schemas (e.g. dateSchema)
+      tags.ts              # tag upsert helper
+      dates.ts              # shared date helpers (toISODate, addDays, round)
+      streak.ts             # shared streak calculation
+      testUser.ts           # test-only fake Supabase Auth user helper
+    tools/
+      createEntry.ts
+      listEntries.ts
+      updateEntry.ts
+      deleteEntry.ts
+      getToday.ts
+      searchEntries.ts
+      getMoodTrends.ts
+      getPatterns.ts
+      getStreak.ts
+      getSummary.ts
+      *.test.ts           # one test file per tool
+    registerTools.ts      # registers all 10 tools on an McpServer instance
+    auth.ts                # Supabase OAuth token verification, shared by MCP + API
+    index.ts              # HTTP server entry point: transport, auth, static dashboard, OAuth metadata
+dashboard/                # Web dashboard (React + Vite + Tailwind SPA)
+  src/
+    views/                # Today, Journal, Calendar, Trends, Patterns, Profile
+    components/           # Sidebar, AppLayout
+    auth/                 # Supabase auth context
+    lib/                  # API client, theme context, date/mood helpers
 ```
 
 ## Contributing
 
-Tests run against a local Postgres instance via the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) — install it, make sure Docker is running, then:
+Tests run against a local Postgres instance via the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) — install it, make sure Docker is running, then, from `server/`:
 
 ```bash
+cd server
 supabase start   # boots a local Postgres + applies supabase/migrations
 npm test
 ```
 
-Before opening a PR, please run:
+Before opening a PR, please run (from the repo root):
 
 ```bash
 npm run lint && npm run format:check && npm test

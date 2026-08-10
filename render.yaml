@@ -3,8 +3,8 @@ services:
     name: orium-mcp
     runtime: node
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: npm install && npm run build --workspace=server
+    startCommand: npm run start --workspace=server
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL

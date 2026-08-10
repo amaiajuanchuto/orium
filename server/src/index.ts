@@ -49,7 +49,9 @@ const PORT = Number(process.env.PORT ?? 3000);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
-const DASHBOARD_DIR = path.join(__dirname, "..", "dashboard", "dist");
+// dashboard/ is a sibling of server/ (two levels up from server/dist), not
+// nested inside it — see the workspaces layout in the repo root README.
+const DASHBOARD_DIR = path.join(__dirname, "..", "..", "dashboard", "dist");
 
 const sql = createDatabase(DATABASE_URL);
 
