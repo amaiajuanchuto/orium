@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: orium-mcp
+    name: orium
     runtime: node
     plan: free
     buildCommand: npm install && npm run build --workspace=server
@@ -12,6 +12,6 @@ services:
       - key: SUPABASE_URL
         value: https://imxmcavkzpbbqbhcefkj.supabase.co
       - key: PUBLIC_URL
-        value: https://orium-mcp.onrender.com
+        value: https://orium.onrender.com
       - key: NODE_VERSION
         value: 20

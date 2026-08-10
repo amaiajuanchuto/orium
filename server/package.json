@@ -1,11 +1,11 @@
 {
-  "name": "orium-mcp",
+  "name": "orium",
   "version": "0.1.0",
-  "description": "Orium — an MCP server for mood, energy, sleep, and thought journaling",
+  "description": "Orium — a mental-health journaling platform (MCP server, REST API, and web dashboard) for mood, energy, sleep, and thought tracking",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "orium-mcp": "dist/index.js"
+    "orium": "dist/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && npm run build --prefix ../dashboard",

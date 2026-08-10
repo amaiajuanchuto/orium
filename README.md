@@ -2,7 +2,7 @@
 
 **Orium is an MCP server for mental health journaling.** Track your mood, energy, sleep, and thoughts by just talking to Claude; no app to open, no form to fill out. Entries are stored in a Postgres database (Supabase), so your journal persists across machines and sessions. Multiple people can use the same deployment — each account's entries are private to them.
 
-🔗 **[Try the live dashboard](https://orium-mcp.onrender.com)** — sign up for your own free account. (Hosted on Render's free tier, so the first load after a period of inactivity can take 30–60s to spin up.)
+🔗 **[Try the live dashboard](https://orium.onrender.com)** — sign up for your own free account. (Hosted on Render's free tier, so the first load after a period of inactivity can take 30–60s to spin up.)
 
 ```
 You:    Log today — mood 7, energy 6, slept 7.5 hours, feeling good after the gym
@@ -27,8 +27,8 @@ Claude: Your mood is up 12% vs. last month, and you're on a 9-day logging streak
 Orium isn't published to npm yet, so install it from source. This is an npm workspaces monorepo — [`server/`](server) (the MCP + REST API) and [`dashboard/`](dashboard) (the web UI) are independent packages, but one `npm install` at the root sets both up:
 
 ```bash
-git clone https://github.com/amaiajuanchuto/orium-mcp.git
-cd orium-mcp
+git clone https://github.com/amaiajuanchuto/orium.git
+cd orium
 npm install
 npm run build
 ```
