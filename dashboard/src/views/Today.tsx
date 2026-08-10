@@ -3,6 +3,7 @@ import { api, type EntryWithTags, type Pattern, type SummaryResult } from "../li
 import { colorForMood } from "../lib/mood";
 import { addDays, toISODate } from "../lib/date";
 import { useStreak } from "../lib/StreakContext";
+import { LoadingScreen } from "../components/LoadingScreen";
 
 const QUICK_TAGS = [
   "exercise",
@@ -31,43 +32,47 @@ export function Today() {
 
   const [summary, setSummary] = useState<SummaryResult | null>(null);
   const [pattern, setPattern] = useState<Pattern | null>(null);
-  const [sparkline, setSparkline] = useState<{ date: string; entry: EntryWithTags | null }[]>(
-    [],
-  );
+  const [sparkline, setSparkline] = useState<
+    { date: string; entry: EntryWithTags | null }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getToday().then((entry) => {
-      if (entry) {
-        setExisting(entry);
-        setMood(entry.mood_rating);
-        setEnergy(entry.energy_level);
-        setSleep(entry.sleep_hours != null ? String(entry.sleep_hours) : "");
-        setNotes(entry.notes ?? "");
-        setTags(entry.tags);
-      }
-    });
-    api
-      .getSummary("week")
-      .then(setSummary)
-      .catch(() => undefined);
-    api
-      .getPatterns()
-      .then((patterns) => setPattern(patterns[0] ?? null))
-      .catch(() => undefined);
     const today = new Date();
     const from = toISODate(addDays(today, -6));
     const to = toISODate(today);
-    api
-      .listEntries({ from, to, limit: 7 })
-      .then((entries) => {
-        const byDate = new Map(entries.map((entry) => [entry.date, entry]));
-        const slots = Array.from({ length: 7 }, (_, i) => {
-          const date = toISODate(addDays(today, -6 + i));
-          return { date, entry: byDate.get(date) ?? null };
-        });
-        setSparkline(slots);
-      })
-      .catch(() => undefined);
+
+    Promise.all([
+      api.getToday().then((entry) => {
+        if (entry) {
+          setExisting(entry);
+          setMood(entry.mood_rating);
+          setEnergy(entry.energy_level);
+          setSleep(entry.sleep_hours != null ? String(entry.sleep_hours) : "");
+          setNotes(entry.notes ?? "");
+          setTags(entry.tags);
+        }
+      }),
+      api
+        .getSummary("week")
+        .then(setSummary)
+        .catch(() => undefined),
+      api
+        .getPatterns()
+        .then((patterns) => setPattern(patterns[0] ?? null))
+        .catch(() => undefined),
+      api
+        .listEntries({ from, to, limit: 7 })
+        .then((entries) => {
+          const byDate = new Map(entries.map((entry) => [entry.date, entry]));
+          const slots = Array.from({ length: 7 }, (_, i) => {
+            const date = toISODate(addDays(today, -6 + i));
+            return { date, entry: byDate.get(date) ?? null };
+          });
+          setSparkline(slots);
+        })
+        .catch(() => undefined),
+    ]).finally(() => setLoading(false));
   }, []);
 
   function toggleTag(tag: string): void {
@@ -102,6 +107,8 @@ export function Today() {
       setSaving(false);
     }
   }
+
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.35fr_.95fr]">
@@ -200,12 +207,8 @@ export function Today() {
         >
           {saving ? "Saving…" : existing ? "Update entry" : "Save entry"}
         </button>
-        {savedAt && !saveError && (
-          <span className="ml-3 text-sm text-muted">Saved.</span>
-        )}
-        {saveError && (
-          <span className="ml-3 text-sm text-red-600">{saveError}</span>
-        )}
+        {savedAt && !saveError && <span className="ml-3 text-sm text-muted">Saved.</span>}
+        {saveError && <span className="ml-3 text-sm text-red-600">{saveError}</span>}
       </section>
 
       <aside className="flex flex-col gap-5">
@@ -247,7 +250,9 @@ export function Today() {
                     height: entry ? `${(entry.mood_rating / 10) * 100}%` : "6%",
                     background: colorForMood(entry?.mood_rating),
                   }}
-                  title={entry ? `${date}: mood ${entry.mood_rating}` : `${date}: no entry`}
+                  title={
+                    entry ? `${date}: mood ${entry.mood_rating}` : `${date}: no entry`
+                  }
                 />
               ))}
             </div>

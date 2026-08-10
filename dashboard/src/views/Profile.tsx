@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type Profile as ProfileData, type UpsertProfileInput } from "../lib/api";
+import { LoadingScreen } from "../components/LoadingScreen";
 
 const PRONOUN_OPTIONS = ["she/her", "he/him", "they/them", "other"];
 
@@ -144,7 +145,7 @@ export function Profile() {
 
   const initial = (name || "?").trim().charAt(0).toUpperCase();
 
-  if (loading) return <p className="text-muted">Loading…</p>;
+  if (loading) return <LoadingScreen />;
 
   return (
     <div className="max-w-2xl">

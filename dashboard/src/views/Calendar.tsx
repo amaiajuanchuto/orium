@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type EntryWithTags } from "../lib/api";
 import { colorForMood } from "../lib/mood";
+import { LoadingScreen } from "../components/LoadingScreen";
 import {
   addMonths,
   daysInMonth,
@@ -16,6 +17,7 @@ export function Calendar() {
   const [monthDate, setMonthDate] = useState(() => startOfMonth(new Date()));
   const [entries, setEntries] = useState<Record<string, EntryWithTags>>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth() + 1;
@@ -23,6 +25,7 @@ export function Calendar() {
 
   useEffect(() => {
     setSelectedDate(null);
+    setLoading(true);
     const from = formatISOFromParts(year, month, 1);
     const to = formatISOFromParts(year, month, daysInMonth(monthDate));
 
@@ -33,7 +36,8 @@ export function Calendar() {
         for (const entry of list) byDate[entry.date] = entry;
         setEntries(byDate);
       })
-      .catch(() => setEntries({}));
+      .catch(() => setEntries({}))
+      .finally(() => setLoading(false));
   }, [year, month, monthDate]);
 
   const firstDow = new Date(year, month - 1, 1).getDay();
@@ -47,6 +51,8 @@ export function Calendar() {
   ];
 
   const selected = selectedDate ? entries[selectedDate] : undefined;
+
+  if (loading) return <LoadingScreen />;
 
   return (
     <div>

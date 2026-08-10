@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { api, type EntryWithTags, type MoodTrendsResult } from "../lib/api";
 import { addDays, toISODate } from "../lib/date";
+import { LoadingScreen } from "../components/LoadingScreen";
 
 type Period = "week" | "month" | "quarter";
 
@@ -57,22 +58,25 @@ export function Trends() {
   const [period, setPeriod] = useState<Period>("week");
   const [entries, setEntries] = useState<EntryWithTags[]>([]);
   const [trends, setTrends] = useState<MoodTrendsResult | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     const days = PERIODS.find((p) => p.id === period)!.days;
     const today = new Date();
     const from = toISODate(addDays(today, -(days - 1)));
     const to = toISODate(today);
 
-    api
-      .listEntries({ from, to, limit: 100 })
-      .then((list) => setEntries([...list].reverse()))
-      .catch(() => setEntries([]));
-
-    api
-      .getMoodTrends(period)
-      .then(setTrends)
-      .catch(() => setTrends(null));
+    Promise.all([
+      api
+        .listEntries({ from, to, limit: 100 })
+        .then((list) => setEntries([...list].reverse()))
+        .catch(() => setEntries([])),
+      api
+        .getMoodTrends(period)
+        .then(setTrends)
+        .catch(() => setTrends(null)),
+    ]).finally(() => setLoading(false));
   }, [period]);
 
   const chartData = entries.map((e) => ({
@@ -80,6 +84,8 @@ export function Trends() {
     mood: e.mood_rating,
     energy: e.energy_level,
   }));
+
+  if (loading) return <LoadingScreen />;
 
   return (
     <div>

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api, type EntryWithTags } from "../lib/api";
 import { colorForMood } from "../lib/mood";
+import { LoadingScreen } from "../components/LoadingScreen";
 
 export function Journal() {
   const [entries, setEntries] = useState<EntryWithTags[]>([]);
   const [keyword, setKeyword] = useState("");
   const [submittedKeyword, setSubmittedKeyword] = useState("");
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   useEffect(() => {
     setLoading(true);
@@ -17,8 +19,13 @@ export function Journal() {
     request
       .then(setEntries)
       .catch(() => setEntries([]))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setInitialLoad(false);
+      });
   }, [submittedKeyword]);
+
+  if (initialLoad) return <LoadingScreen />;
 
   return (
     <div>
@@ -47,60 +54,62 @@ export function Journal() {
         </button>
       </form>
 
-      {loading && <p className="text-muted">Loading…</p>}
+      {loading && <LoadingScreen />}
 
       {!loading && entries.length === 0 && (
         <p className="text-muted">No entries found.</p>
       )}
 
-      <div className="flex flex-col gap-3">
-        {entries.map((entry) => (
-          <article
-            key={entry.id}
-            className="rounded-2xl border border-border-1 bg-surface p-5"
-          >
-            <div className="flex items-start gap-4">
-              <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                style={{ background: colorForMood(entry.mood_rating) }}
-              >
-                {entry.mood_rating}
-              </div>
-              <div className="flex-1">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="font-heading font-semibold text-ink">
-                    {new Date(entry.date + "T00:00:00").toLocaleDateString(undefined, {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </p>
-                  <p className="text-xs text-muted">
-                    Energy {entry.energy_level}
-                    {entry.sleep_hours != null && ` · Sleep ${entry.sleep_hours}h`}
-                  </p>
+      {!loading && (
+        <div className="flex flex-col gap-3">
+          {entries.map((entry) => (
+            <article
+              key={entry.id}
+              className="rounded-2xl border border-border-1 bg-surface p-5"
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                  style={{ background: colorForMood(entry.mood_rating) }}
+                >
+                  {entry.mood_rating}
                 </div>
-                {entry.notes && (
-                  <p className="mt-2 text-sm text-ink-soft">{entry.notes}</p>
-                )}
-                {entry.tags.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {entry.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full px-2.5 py-0.5 text-xs"
-                        style={{ background: "var(--chip)", color: "var(--chip-ink)" }}
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="font-heading font-semibold text-ink">
+                      {new Date(entry.date + "T00:00:00").toLocaleDateString(undefined, {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </p>
+                    <p className="text-xs text-muted">
+                      Energy {entry.energy_level}
+                      {entry.sleep_hours != null && ` · Sleep ${entry.sleep_hours}h`}
+                    </p>
                   </div>
-                )}
+                  {entry.notes && (
+                    <p className="mt-2 text-sm text-ink-soft">{entry.notes}</p>
+                  )}
+                  {entry.tags.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {entry.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full px-2.5 py-0.5 text-xs"
+                          style={{ background: "var(--chip)", color: "var(--chip-ink)" }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </article>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
 import { AppLayout } from "./components/AppLayout";
+import { LoadingScreen } from "./components/LoadingScreen";
 import { StreakProvider } from "./lib/StreakContext";
 import { Login } from "./views/Login";
 import { Today } from "./views/Today";
@@ -15,8 +16,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-bg text-muted">
-        Loading…
+      <div className="flex min-h-screen items-center justify-center bg-bg">
+        <LoadingScreen />
       </div>
     );
   }
