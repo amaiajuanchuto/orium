@@ -18,6 +18,13 @@ import postgres from "postgres";
  */
 export function createDatabase(connectionString: string): postgres.Sql {
   return postgres(connectionString, {
+    // Supabase's Transaction pooler (the connection this app uses — see
+    // README) doesn't guarantee the same backend connection across
+    // statements, which breaks postgres.js's default server-side prepared
+    // statements ("prepared statement ... does not exist" errors under
+    // load). Disabling them is the standard fix for pgbouncer transaction
+    // mode: https://github.com/porsager/postgres#pgbouncer
+    prepare: false,
     types: {
       date: {
         to: 1082,
