@@ -1,6 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
 
+const FEATURES = [
+  "Journal your mood, energy, and sleep in seconds — from chat or the web.",
+  "See trends, streaks, and patterns emerge over time, not just single entries.",
+  "Your data, private by default — every account's journal is fully isolated.",
+];
+
 export function Login() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
@@ -18,48 +24,86 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-2xl border border-border-1 bg-surface p-8 shadow-sm"
+    <div className="flex min-h-screen bg-bg">
+      <div
+        className="hidden w-1/2 flex-col justify-center gap-8 px-16 py-12 lg:flex"
+        style={{
+          background: "linear-gradient(135deg, var(--accent), var(--accent-dark))",
+        }}
       >
-        <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">Orium</h1>
-        <p className="mb-6 text-sm text-muted">Log in to your journal.</p>
+        <img src="/logo-dark.png" alt="Orium" className="h-16 w-auto object-contain" />
 
-        <label className="mb-1 block text-sm text-ink-soft" htmlFor="email">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
-        />
+        <div>
+          <h1 className="mb-3 font-heading text-3xl font-bold text-on-accent">
+            A calmer way to track how you're doing.
+          </h1>
+          <p className="max-w-md text-on-accent opacity-90">
+            Orium is a mental-health journal you can log to just by talking to
+            Claude, then explore here — mood, energy, sleep, and the patterns
+            underneath them.
+          </p>
+        </div>
 
-        <label className="mb-1 block text-sm text-ink-soft" htmlFor="password">
-          Password
-        </label>
-        <input
-          id="password"
-          type="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mb-4 w-full rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
-        />
+        <ul className="flex flex-col gap-4">
+          {FEATURES.map((feature) => (
+            <li key={feature} className="flex items-start gap-3 text-on-accent">
+              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-on-accent opacity-80" />
+              <span className="text-sm opacity-90">{feature}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-lg bg-accent px-4 py-2 font-semibold text-on-accent transition hover:bg-accent-dark disabled:opacity-60"
+      <div className="flex flex-1 items-center justify-center px-4">
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-sm rounded-2xl border border-border-1 bg-surface p-8 shadow-sm"
         >
-          {submitting ? "Logging in…" : "Log in"}
-        </button>
-      </form>
+          <img
+            src="/logo.png"
+            alt="Orium"
+            className="mb-6 h-8 w-auto object-contain lg:hidden"
+          />
+          <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">
+            Welcome back
+          </h1>
+          <p className="mb-6 text-sm text-muted">Log in to your journal.</p>
+
+          <label className="mb-1 block text-sm text-ink-soft" htmlFor="email">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="mb-4 w-full rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
+          />
+
+          <label className="mb-1 block text-sm text-ink-soft" htmlFor="password">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="mb-4 w-full rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
+          />
+
+          {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-lg bg-accent px-4 py-2 font-semibold text-on-accent transition hover:bg-accent-dark disabled:opacity-60"
+          >
+            {submitting ? "Logging in…" : "Log in"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
