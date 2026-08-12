@@ -50,7 +50,7 @@ To enable OAuth on your own Supabase project:
 1. **Authentication → OAuth Server** → enable it (currently in beta).
 2. Set **Site URL** to your deployed server's public URL (e.g. `https://your-app.onrender.com`), and **Auth Path** to `/oauth/consent`.
 3. Enable **Allow Dynamic OAuth Apps** — claude.ai self-registers as an OAuth client on first connection (no manual client ID/secret needed) rather than using a pre-registered one.
-4. Decide whether to allow public sign-up (**Authentication → Sign In / Providers → "Allow new users to sign up"**). Each account's journal is private (enforced by `user_id` scoping and Postgres Row Level Security), so multiple people can safely share one deployment — leave sign-up on if you want that, or turn it off and create accounts yourself via **Authentication → Users → Add user** if you'd rather control who can join.
+4. Decide whether to allow public sign-up (**Authentication → Sign In / Providers → "Allow new users to sign up"**). Each account's journal is private (enforced by `user_id` scoping applied in every query — see the note on Row Level Security below), so multiple people can safely share one deployment — leave sign-up on if you want that, or turn it off and create accounts yourself via **Authentication → Users → Add user** if you'd rather control who can join.
 5. Create your own login the same way (**Authentication → Users → Add user**) if sign-up is off.
 
 The login (`/login`) and consent (`/oauth/consent`) pages Supabase redirects to for this flow are served by Orium itself — see [`server/public/`](server/public) — since Supabase's OAuth Server doesn't host its own consent UI.
@@ -176,10 +176,12 @@ Invalid input returns `400` with `{ error: "Validation failed", issues: [...] }`
 
 Four tables, defined in [`server/supabase/migrations`](server/supabase/migrations):
 
-- **entries** — one row per journal entry (`user_id`, `date`, `mood_rating` and `energy_level` 1–10, `sleep_hours`, `notes`, timestamps; `updated_at` is refreshed automatically by a trigger). A unique constraint on `(user_id, date)` means a user can only have one entry per day — creating a second entry for a date replaces the first rather than adding a duplicate. Every query is scoped to the authenticated user's own `user_id`, and Row Level Security policies enforce the same boundary at the database level.
+- **entries** — one row per journal entry (`user_id`, `date`, `mood_rating` and `energy_level` 1–10, `sleep_hours`, `notes`, timestamps; `updated_at` is refreshed automatically by a trigger). A unique constraint on `(user_id, date)` means a user can only have one entry per day — creating a second entry for a date replaces the first rather than adding a duplicate. Every query in `src/core` is scoped to the authenticated user's own `user_id` — this application-level scoping is, today, the actual and only tenant boundary (see note below).
 - **tags** — a shared, global vocabulary (not per-user) — seeded with ~80 common journaling tags, and anyone can add more on the fly, same as before
 - **entry_tags** — many-to-many join between entries and tags, with cascading deletes
-- **profiles** — one row per user, optional lifestyle context (name, pronouns, work, exercise, diet, hobbies, free-text note) shown/edited in the dashboard's Profile view; same `user_id` scoping and RLS as `entries`
+- **profiles** — one row per user, optional lifestyle context (name, pronouns, work, exercise, diet, hobbies, free-text note) shown/edited in the dashboard's Profile view; same `user_id` scoping as `entries`
+
+**A note on Row Level Security:** the migrations enable RLS and define `auth.uid() = user_id` policies on these tables. In this deployment those policies are not actually enforced — the server connects with a role that owns the tables (owners bypass RLS unless `FORCE ROW LEVEL SECURITY` is set, which it isn't), and `auth.uid()` has no value over a plain Postgres connection in the first place. The policies are in place for a possible future direct-PostgREST access path, but they provide no defense today. The `user_id` scoping applied in every query in `src/core` is the sole thing enforcing that one account can't read or write another's data — it's applied consistently, but there is no second layer behind it.
 
 ## Scripts
 
