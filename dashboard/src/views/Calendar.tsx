@@ -3,6 +3,7 @@ import { api, type EntryWithTags } from "../lib/api";
 import { colorForMood } from "../lib/mood";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { EntryForm } from "../components/EntryForm";
+import { EditDeleteButtons } from "../components/EditDeleteButtons";
 import {
   addMonths,
   daysInMonth,
@@ -80,7 +81,7 @@ export function Calendar() {
       </div>
 
       <div
-        className={`grid grid-cols-1 gap-6 ${selectedDate ? "lg:grid-cols-[1.7fr_1fr]" : ""}`}
+        className={`grid grid-cols-1 items-start gap-6 ${selectedDate ? "lg:grid-cols-[1.7fr_1fr]" : ""}`}
       >
         <div className="rounded-2xl border border-border-1 bg-surface p-5">
           <div className="mb-2 grid grid-cols-7 gap-2 text-center text-xs font-medium text-muted">
@@ -149,7 +150,6 @@ export function Calendar() {
                   setEntries((current) => ({ ...current, [entry.date]: entry }));
                   setEditing(false);
                 }}
-                onCancel={selected ? () => setEditing(false) : undefined}
               />
             ) : (
               <>
@@ -193,12 +193,19 @@ export function Calendar() {
                   </div>
                 )}
 
-                <button
-                  onClick={() => setEditing(true)}
-                  className="rounded-lg border border-border-3 bg-surface px-4 py-2 text-sm font-medium text-ink-soft hover:bg-surface-2"
-                >
-                  Edit entry
-                </button>
+                <div className="flex justify-end">
+                  <EditDeleteButtons
+                    onEdit={() => setEditing(true)}
+                    onDelete={async () => {
+                      await api.deleteEntry(selected.id);
+                      setEntries((current) => {
+                        const next = { ...current };
+                        delete next[selectedDate];
+                        return next;
+                      });
+                    }}
+                  />
+                </div>
               </>
             )}
           </div>

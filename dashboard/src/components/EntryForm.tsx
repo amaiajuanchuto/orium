@@ -22,11 +22,9 @@ interface EntryFormProps {
   existing?: EntryWithTags | null;
   /** Called with the saved entry once the save succeeds. */
   onSaved: (entry: EntryWithTags) => void;
-  /** Called when the user cancels out of the form without saving. */
-  onCancel?: () => void;
 }
 
-export function EntryForm({ date, existing, onSaved, onCancel }: EntryFormProps) {
+export function EntryForm({ date, existing, onSaved }: EntryFormProps) {
   const [mood, setMood] = useState<number | null>(existing?.mood_rating ?? null);
   const [energy, setEnergy] = useState<number | null>(existing?.energy_level ?? null);
   const [sleep, setSleep] = useState(
@@ -160,14 +158,6 @@ export function EntryForm({ date, existing, onSaved, onCancel }: EntryFormProps)
         >
           {saving ? "Saving…" : existing ? "Update entry" : "Save entry"}
         </button>
-        {onCancel && (
-          <button
-            onClick={onCancel}
-            className="rounded-lg border border-border-3 bg-surface px-4 py-2 text-sm font-medium text-ink-soft hover:bg-surface-2"
-          >
-            Cancel
-          </button>
-        )}
         {!canSave && !error && (
           <span className="text-sm text-muted">Pick a mood and energy first.</span>
         )}

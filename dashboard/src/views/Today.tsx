@@ -5,6 +5,7 @@ import { addDays, toISODate } from "../lib/date";
 import { useStreak } from "../lib/StreakContext";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { EntryForm } from "../components/EntryForm";
+import { EditDeleteButtons } from "../components/EditDeleteButtons";
 
 export function Today() {
   const { refreshStreak } = useStreak();
@@ -51,6 +52,14 @@ export function Today() {
 
   function handleSaved(entry: EntryWithTags): void {
     setExisting(entry);
+    setEditing(false);
+    refreshStreak();
+  }
+
+  async function handleDelete(): Promise<void> {
+    if (!existing) return;
+    await api.deleteEntry(existing.id);
+    setExisting(null);
     setEditing(false);
     refreshStreak();
   }
@@ -109,20 +118,15 @@ export function Today() {
               </div>
             )}
 
-            <button
-              onClick={() => setEditing(true)}
-              className="rounded-lg border border-border-3 bg-surface px-4 py-2 text-sm font-medium text-ink-soft hover:bg-surface-2"
-            >
-              Update entry
-            </button>
+            <div className="flex justify-end">
+              <EditDeleteButtons
+                onEdit={() => setEditing(true)}
+                onDelete={handleDelete}
+              />
+            </div>
           </div>
         ) : (
-          <EntryForm
-            date={today}
-            existing={existing}
-            onSaved={handleSaved}
-            onCancel={existing ? () => setEditing(false) : undefined}
-          />
+          <EntryForm date={today} existing={existing} onSaved={handleSaved} />
         )}
       </section>
 

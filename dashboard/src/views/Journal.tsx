@@ -3,6 +3,7 @@ import { api, type EntryWithTags } from "../lib/api";
 import { colorForMood } from "../lib/mood";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { EntryForm } from "../components/EntryForm";
+import { EditDeleteButtons } from "../components/EditDeleteButtons";
 
 export function Journal() {
   const [entries, setEntries] = useState<EntryWithTags[]>([]);
@@ -79,7 +80,6 @@ export function Journal() {
                     );
                     setEditingId(null);
                   }}
-                  onCancel={() => setEditingId(null)}
                 />
               ) : (
                 <div className="flex items-start gap-4">
@@ -121,12 +121,17 @@ export function Journal() {
                         ))}
                       </div>
                     )}
-                    <button
-                      onClick={() => setEditingId(entry.id)}
-                      className="mt-3 rounded-lg border border-border-3 bg-surface px-3 py-1 text-xs font-medium text-ink-soft hover:bg-surface-2"
-                    >
-                      Edit
-                    </button>
+                    <div className="mt-3 flex justify-end">
+                      <EditDeleteButtons
+                        onEdit={() => setEditingId(entry.id)}
+                        onDelete={async () => {
+                          await api.deleteEntry(entry.id);
+                          setEntries((current) =>
+                            current.filter((e) => e.id !== entry.id),
+                          );
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
