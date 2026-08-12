@@ -55,8 +55,19 @@ const DASHBOARD_DIR = path.join(__dirname, "..", "..", "dashboard", "dist");
 
 const sql = createDatabase(DATABASE_URL);
 
+interface McpSession {
+  transport: StreamableHTTPServerTransport;
+  /** The user this session was created for — every subsequent request on
+   * this session id must come from the same authenticated user, or it's
+   * rejected. Session ids are unguessable UUIDs, but an unguessable
+   * identifier is still a secret that can leak (logs, proxies, browser
+   * history); checking real identity here means a leaked session id alone
+   * isn't enough to read or write someone else's journal. */
+  userId: string;
+}
+
 /** Active Streamable HTTP sessions, keyed by their MCP session id. */
-const transports: Record<string, StreamableHTTPServerTransport> = {};
+const sessions: Record<string, McpSession> = {};
 
 // We're a resource server only — Supabase's OAuth 2.1 Server is the actual
 // authorization server. Rather than hand-typing its endpoints (and risking
@@ -124,8 +135,15 @@ app.post("/mcp", express.json(), async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   let transport: StreamableHTTPServerTransport;
 
-  if (sessionId && transports[sessionId]) {
-    transport = transports[sessionId];
+  if (sessionId && sessions[sessionId]) {
+    // A session id alone isn't proof of identity — it must belong to the
+    // same authenticated user who created it. Same 400 as "no such
+    // session" so probing doesn't reveal whether a guessed id is valid.
+    if (sessions[sessionId].userId !== req.userId) {
+      res.status(400).send("Invalid or missing session ID");
+      return;
+    }
+    transport = sessions[sessionId].transport;
   } else if (!sessionId && isInitializeRequest(req.body)) {
     // requireAuth always runs first and rejects unauthenticated requests, so
     // userId is guaranteed to be set here.
@@ -134,13 +152,13 @@ app.post("/mcp", express.json(), async (req, res) => {
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (newSessionId) => {
-        transports[newSessionId] = transport;
+        sessions[newSessionId] = { transport, userId };
       },
     });
 
     transport.onclose = () => {
       if (transport.sessionId) {
-        delete transports[transport.sessionId];
+        delete sessions[transport.sessionId];
       }
     };
 
@@ -161,14 +179,14 @@ app.post("/mcp", express.json(), async (req, res) => {
 
 async function handleSessionRequest(req: Request, res: Response): Promise<void> {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
-  const transport = sessionId ? transports[sessionId] : undefined;
+  const session = sessionId ? sessions[sessionId] : undefined;
 
-  if (!transport) {
+  if (!session || session.userId !== req.userId) {
     res.status(400).send("Invalid or missing session ID");
     return;
   }
 
-  await transport.handleRequest(req, res);
+  await session.transport.handleRequest(req, res);
 }
 
 app.get("/mcp", handleSessionRequest);
@@ -205,7 +223,7 @@ const httpServer = app.listen(PORT, () => {
 
 async function shutdown(): Promise<void> {
   httpServer.close();
-  await Promise.all(Object.values(transports).map((transport) => transport.close()));
+  await Promise.all(Object.values(sessions).map((s) => s.transport.close()));
   await sql.end();
   process.exit(0);
 }
