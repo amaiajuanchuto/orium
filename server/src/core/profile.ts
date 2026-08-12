@@ -60,15 +60,15 @@ export async function upsertProfile(
       ${input.diet ?? null}, ${input.hobbies ?? []}, ${input.note ?? null}
     )
     ON CONFLICT (user_id) DO UPDATE SET
-      name = COALESCE(EXCLUDED.name, profiles.name),
-      age = COALESCE(EXCLUDED.age, profiles.age),
-      pronouns = COALESCE(EXCLUDED.pronouns, profiles.pronouns),
-      work = COALESCE(EXCLUDED.work, profiles.work),
-      work_rhythm = COALESCE(EXCLUDED.work_rhythm, profiles.work_rhythm),
+      name = CASE WHEN ${input.name !== undefined} THEN EXCLUDED.name ELSE profiles.name END,
+      age = CASE WHEN ${input.age !== undefined} THEN EXCLUDED.age ELSE profiles.age END,
+      pronouns = CASE WHEN ${input.pronouns !== undefined} THEN EXCLUDED.pronouns ELSE profiles.pronouns END,
+      work = CASE WHEN ${input.work !== undefined} THEN EXCLUDED.work ELSE profiles.work END,
+      work_rhythm = CASE WHEN ${input.work_rhythm !== undefined} THEN EXCLUDED.work_rhythm ELSE profiles.work_rhythm END,
       exercise = CASE WHEN ${input.exercise !== undefined} THEN EXCLUDED.exercise ELSE profiles.exercise END,
-      diet = COALESCE(EXCLUDED.diet, profiles.diet),
+      diet = CASE WHEN ${input.diet !== undefined} THEN EXCLUDED.diet ELSE profiles.diet END,
       hobbies = CASE WHEN ${input.hobbies !== undefined} THEN EXCLUDED.hobbies ELSE profiles.hobbies END,
-      note = COALESCE(EXCLUDED.note, profiles.note)
+      note = CASE WHEN ${input.note !== undefined} THEN EXCLUDED.note ELSE profiles.note END
     RETURNING *
   `;
   return profile!;

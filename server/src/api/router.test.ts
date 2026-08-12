@@ -397,6 +397,21 @@ describe("API router", () => {
       expect(res.body.name).toBe("Amaia");
     });
 
+    it("clears a scalar field when explicitly set to null", async () => {
+      await request(app)
+        .put("/api/v1/profile")
+        .set("Authorization", "Bearer test-token")
+        .send({ name: "Amaia", note: "some note" });
+
+      const res = await request(app)
+        .put("/api/v1/profile")
+        .set("Authorization", "Bearer test-token")
+        .send({ note: null });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ name: "Amaia", note: null });
+    });
+
     it("returns 400 for an invalid body", async () => {
       const res = await request(app)
         .put("/api/v1/profile")
