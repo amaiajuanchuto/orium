@@ -62,20 +62,24 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="flex min-h-screen flex-col bg-bg lg:flex-row">
       <div
-        className="hidden w-1/2 flex-col justify-center gap-8 px-16 py-12 lg:flex"
+        className="flex min-h-screen flex-col justify-center gap-5 px-6 py-10 sm:px-10 lg:min-h-0 lg:w-1/2 lg:gap-8 lg:px-16 lg:py-12"
         style={{
           background: "linear-gradient(135deg, var(--accent), var(--accent-dark))",
         }}
       >
-        <img src="/logo-dark.png" alt="Orium" className="h-16 w-auto object-contain" />
+        <img
+          src="/logo-dark.png"
+          alt="Orium"
+          className="h-12 w-auto object-contain lg:h-16"
+        />
 
         <div>
-          <h1 className="mb-3 font-heading text-3xl font-bold text-on-accent">
+          <h1 className="mb-3 font-heading text-2xl font-bold text-on-accent lg:text-3xl">
             A calmer way to track how you're doing.
           </h1>
-          <p className="max-w-md text-on-accent opacity-90">
+          <p className="max-w-md text-sm text-on-accent opacity-90 lg:text-base">
             Orium is a mental-health journal you can log to just by talking to Claude,
             then explore here — mood, energy, sleep, and the patterns underneath them.
           </p>
@@ -91,14 +95,8 @@ export function Login() {
         </ul>
       </div>
 
-      <div className="flex flex-1 items-center justify-center px-4">
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm rounded-2xl border border-border-1 bg-surface p-8 shadow-sm">
-          <img
-            src="/logo.png"
-            alt="Orium"
-            className="mb-6 h-8 w-auto object-contain lg:hidden"
-          />
-
           {checkEmail ? (
             <>
               <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">
