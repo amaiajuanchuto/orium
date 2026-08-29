@@ -155,7 +155,7 @@ Once connected, just talk to Claude naturally; it picks the right tool for you.
 | `get_today`       | Look up today's entry, if one exists                                                                                        |
 | `search_entries`  | Case-insensitive keyword search across entry notes                                                                          |
 | `get_mood_trends` | Compare average mood/energy/sleep over a week/month/quarter vs. the prior period                                            |
-| `get_patterns`    | Find the strongest correlations between mood and sleep, day of week, or tags                                                |
+| `get_patterns`    | Find statistically significant correlations (Welch's t-test, p < 0.05) between mood and sleep, day of week, or tags         |
 | `get_streak`      | Report the current/longest daily-logging streak and progress to the next milestone                                          |
 | `get_summary`     | Comprehensive week/month review: averages, trend, best/worst days, top tags, tag impact, streak, and a personalized message |
 
@@ -175,11 +175,22 @@ Alongside the MCP tools, Orium exposes a REST API at `/api/v1` — the same core
 | `GET`    | `/streak`              | Streak report, or `null` with no entries                    |
 | `GET`    | `/summary?period=`     | `week` or `month` — full period review, or `null`           |
 | `GET`    | `/mood-trends?period=` | `week`, `month`, or `quarter` — trend comparison, or `null` |
-| `GET`    | `/patterns`            | Mood correlations — `[]` if not enough data                 |
+| `GET`    | `/patterns`            | Statistically significant mood correlations — `[]` if none qualify |
 | `GET`    | `/profile`             | The user's lifestyle profile, or `null` if not set up yet   |
 | `PUT`    | `/profile`             | Create/update the profile — only provided fields change     |
+| `GET`    | `/tags`                | Every tag in the shared vocabulary, alphabetically           |
 
 Invalid input returns `400` with `{ error: "Validation failed", issues: [...] }` (zod's issue list). Every query is scoped to the authenticated user, same as the MCP tools.
+
+### How Patterns works
+
+Patterns are plain descriptive statistics, computed fresh from your own entries on every request — no machine learning, no model, nothing "trained" or predictive. Three independent comparisons run in parallel (`server/src/core/insights.ts`):
+
+- **Sleep** — groups entries into 4 buckets (under 6h, 6–7h, 7–8h, 8h+), compares the best vs. worst bucket's average mood.
+- **Day of week** — same idea, grouped by weekday instead.
+- **Tags** — for each tag used 5+ times, compares average mood on days *with* that tag vs. days *without* it.
+
+Each comparison only counts once **both** groups have at least 5 entries, and the difference passes a **Welch's two-sample t-test** at `p < 0.05` (`server/src/db/stats.ts`, implemented from first principles — no stats library — and unit-tested against textbook critical t-values). Patterns that don't clear that bar are simply never returned, so what you see has passed an actual significance test, not just a bigger-looking average. This establishes a statistically real *association*, not causation — a t-test can't tell you the tag caused the mood difference, only that the two are unlikely to be unrelated by chance.
 
 ## Database schema
 
@@ -233,9 +244,10 @@ server/                  # MCP server + REST API (Node/Express)
       connection.test.ts
       types.ts            # shared Entry / EntryWithTags / Profile types
       validation.ts       # shared zod schemas (e.g. dateSchema)
-      tags.ts              # tag upsert helper
+      tags.ts              # tag upsert/list helpers (shared vocabulary)
       dates.ts              # shared date helpers (toISODate, addDays, round)
       streak.ts             # shared streak calculation
+      stats.ts               # Welch's t-test + t-distribution, from first principles
       testUser.ts           # test-only fake Supabase Auth user helper
     tools/
       createEntry.ts
