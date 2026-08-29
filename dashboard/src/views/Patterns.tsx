@@ -8,6 +8,10 @@ const TYPE_LABELS: Record<Pattern["type"], string> = {
   tag: "Tag",
 };
 
+function formatPValue(p: number): string {
+  return p < 0.001 ? "p < 0.001" : `p = ${p}`;
+}
+
 export function Patterns() {
   const [patterns, setPatterns] = useState<Pattern[] | null>(null);
 
@@ -33,6 +37,14 @@ export function Patterns() {
         </p>
       )}
 
+      {patterns.length > 0 && (
+        <p className="mb-4 text-xs text-faint">
+          Each pattern shown has passed a statistical significance test (Welch's t-test, p
+          &lt; 0.05) — the difference is unlikely to be random noise, though it's still an
+          association, not proof of cause and effect.
+        </p>
+      )}
+
       <div className="flex flex-col gap-4">
         {patterns.map((pattern, i) => {
           const positive = pattern.effect_size >= 0;
@@ -54,7 +66,10 @@ export function Patterns() {
                 </span>
               </div>
               <p className="mb-2 text-sm text-ink-soft">{pattern.summary}</p>
-              <p className="text-sm text-label">{pattern.tip}</p>
+              <p className="mb-2 text-sm text-label">{pattern.tip}</p>
+              <p className="text-xs text-faint">
+                ✓ Statistically significant ({formatPValue(pattern.p_value)})
+              </p>
             </div>
           );
         })}

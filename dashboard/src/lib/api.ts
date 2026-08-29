@@ -106,6 +106,8 @@ export interface Pattern {
   type: "sleep" | "day_of_week" | "tag";
   summary: string;
   effect_size: number;
+  /** Two-tailed p-value from the Welch's t-test backing this pattern — always < 0.05. */
+  p_value: number;
   tip: string;
 }
 
