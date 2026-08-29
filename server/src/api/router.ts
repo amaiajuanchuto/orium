@@ -23,6 +23,7 @@ import {
 } from "../core/entries.js";
 import { getMoodTrends, getPatterns, getStreak, getSummary } from "../core/insights.js";
 import { getProfile, upsertProfile } from "../core/profile.js";
+import { listTagNames } from "../db/tags.js";
 import { DATE_REGEX } from "../db/types.js";
 import { dateSchema } from "../db/validation.js";
 import type { TokenVerifier } from "../auth.js";
@@ -228,6 +229,10 @@ export function createApiRouter(
 
   router.get("/patterns", async (req, res) => {
     res.json(await getPatterns(sql, req.userId!));
+  });
+
+  router.get("/tags", async (_req, res) => {
+    res.json(await listTagNames(sql));
   });
 
   router.get("/profile", async (req, res) => {

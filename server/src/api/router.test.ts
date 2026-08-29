@@ -334,6 +334,23 @@ describe("API router", () => {
     });
   });
 
+  describe("GET /tags", () => {
+    it("returns all tag names alphabetically, shared across users", async () => {
+      await createSeedEntry("test-token");
+      await request(app)
+        .post("/api/v1/entries")
+        .set("Authorization", "Bearer other-token")
+        .send({ date: "2026-07-21", mood_rating: 6, energy_level: 6, tags: ["zzz-tag"] });
+
+      const res = await request(app)
+        .get("/api/v1/tags")
+        .set("Authorization", "Bearer test-token");
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(["tired", "zzz-tag"]);
+    });
+  });
+
   describe("GET /profile", () => {
     it("returns null when no profile has been set up", async () => {
       const res = await request(app)

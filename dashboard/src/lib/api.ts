@@ -212,6 +212,8 @@ export const api = {
 
   getPatterns: () => request<Pattern[]>("/patterns"),
 
+  getTags: () => request<string[]>("/tags"),
+
   getProfile: () => request<Profile | null>("/profile"),
 
   upsertProfile: (input: UpsertProfileInput) =>

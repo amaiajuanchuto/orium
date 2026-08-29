@@ -1,17 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, type EntryWithTags } from "../lib/api";
 import { colorForMood } from "../lib/mood";
-
-const QUICK_TAGS = [
-  "exercise",
-  "work",
-  "social",
-  "coffee",
-  "reading",
-  "outdoors",
-  "anxious",
-  "calm",
-];
 
 const DOTS = Array.from({ length: 10 }, (_, i) => i + 1);
 
@@ -32,16 +21,43 @@ export function EntryForm({ date, existing, onSaved }: EntryFormProps) {
   );
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canSave = mood !== null && energy !== null;
+
+  useEffect(() => {
+    api
+      .getTags()
+      .then(setAllTags)
+      .catch(() => undefined);
+  }, []);
 
   function toggleTag(tag: string): void {
     setTags((current) =>
       current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag],
     );
   }
+
+  function addCustomTag(): void {
+    const normalized = newTag.trim().toLowerCase();
+    if (!normalized) return;
+
+    setTags((current) =>
+      current.includes(normalized) ? current : [...current, normalized],
+    );
+    setAllTags((current) =>
+      current.includes(normalized) ? current : [...current, normalized].sort(),
+    );
+    setNewTag("");
+  }
+
+  // Tags already picked come first, then the rest of the shared vocabulary —
+  // so a tag someone just added or an entry's existing tags are never
+  // hidden below the fold of the scrollable chip cloud.
+  const visibleTags = [...tags, ...allTags.filter((t) => !tags.includes(t))];
 
   async function handleSave(): Promise<void> {
     if (mood === null || energy === null) return;
@@ -122,8 +138,11 @@ export function EntryForm({ date, existing, onSaved }: EntryFormProps) {
       />
 
       <label className="mb-2 block text-sm font-medium text-ink-soft">Tags</label>
-      <div className="mb-5 flex flex-wrap gap-2">
-        {QUICK_TAGS.map((tag) => {
+      <div className="mb-3 flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-lg border border-border-1 bg-surface-2 p-3">
+        {visibleTags.length === 0 && (
+          <span className="text-sm text-muted">No tags yet — add one below.</span>
+        )}
+        {visibleTags.map((tag) => {
           const active = tags.includes(tag);
           return (
             <button
@@ -140,6 +159,30 @@ export function EntryForm({ date, existing, onSaved }: EntryFormProps) {
             </button>
           );
         })}
+      </div>
+
+      <div className="mb-5 flex gap-2">
+        <input
+          type="text"
+          value={newTag}
+          onChange={(e) => setNewTag(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addCustomTag();
+            }
+          }}
+          placeholder="Add a custom tag…"
+          className="w-full max-w-xs rounded-lg border border-border-2 bg-field px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+        />
+        <button
+          type="button"
+          onClick={addCustomTag}
+          disabled={!newTag.trim()}
+          className="rounded-lg border border-border-3 bg-surface px-3 py-2 text-sm font-medium text-ink-soft hover:bg-surface-2 disabled:opacity-60"
+        >
+          Add
+        </button>
       </div>
 
       <label className="mb-2 block text-sm font-medium text-ink-soft">Notes</label>

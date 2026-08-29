@@ -25,3 +25,16 @@ export async function upsertTag(
 
   return row!.id;
 }
+
+/**
+ * Lists every tag name in the shared vocabulary, alphabetically. Tags are
+ * global (not per-user) by design — see the multi-user migration.
+ *
+ * @param sql - Open database connection.
+ * @returns All tag names, alphabetically.
+ */
+export async function listTagNames(sql: postgres.Sql): Promise<string[]> {
+  return (await sql<{ name: string }[]>`SELECT name FROM tags ORDER BY name`).map(
+    (row) => row.name,
+  );
+}
