@@ -12,6 +12,15 @@ You:    How's my mood trending this month?
 Claude: Your mood is up 12% vs. last month, and you're on a 9-day logging streak 🔥
 ```
 
+## Jump to
+
+- **Just want to try it?** → [Try the live dashboard](https://orium-mcp.onrender.com)
+- **Self-hosting your own instance?** → [Installation](#installation), [Set up the database](#set-up-the-database), [Set up Supabase OAuth](#set-up-supabase-oauth), [Deploy on Render](#deploy-on-render)
+- **Connecting an AI client?** → [Add to Claude Desktop, claude.ai, or Claude Code](#add-to-claude-desktop-claudeai-or-claude-code)
+- **Using the app day to day?** → [Usage examples](#usage-examples), [Dashboard](#dashboard)
+- **Building on top of Orium?** → [Tools](#tools), [REST API](#rest-api), [Database schema](#database-schema), [Project structure](#project-structure)
+- **Contributing code?** → [Contributing](#contributing)
+
 ## Why Orium
 
 - **No new app to learn** — journal from any Claude surface (Desktop, Code, CLI) using plain language.
