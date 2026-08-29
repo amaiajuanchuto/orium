@@ -23,7 +23,9 @@ export function registerGetPatternsTool(
       title: "Get mood patterns",
       description:
         "Find the strongest patterns in what affects your mood: sleep duration, " +
-        "day of week, and tags. Requires at least 5 entries per group to surface a pattern.",
+        "day of week, and tags. Requires at least 5 entries per group, and only " +
+        "surfaces a pattern if it passes a Welch's t-test at p < 0.05 — so results " +
+        "are backed by an actual significance test, not just eyeballing averages.",
     },
     async () => {
       const patterns = await getPatterns(sql, userId);

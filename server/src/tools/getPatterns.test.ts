@@ -119,7 +119,7 @@ describe("get_patterns tool", () => {
     expect(body.patterns[0].effect_size).toBe(6);
   });
 
-  it("detects a tag pattern", async () => {
+  it("detects a tag pattern, comparing tagged vs. untagged (not vs. overall)", async () => {
     for (let i = 0; i < 5; i++) {
       await seedEntry(i, 9, { tags: ["exercise"] });
     }
@@ -132,8 +132,43 @@ describe("get_patterns tool", () => {
 
     expect(body.patterns).toHaveLength(1);
     expect(body.patterns[0].type).toBe("tag");
-    expect(body.patterns[0].effect_size).toBe(3);
+    // Tagged days (avg 9) vs. untagged days (avg 3) — not vs. the ~6 overall
+    // average, which would understate the real gap.
+    expect(body.patterns[0].effect_size).toBe(6);
     expect(body.patterns[0].summary).toContain('"exercise"');
+  });
+
+  it("includes a p_value on every pattern and mentions significance in the summary", async () => {
+    for (let i = 0; i < 5; i++) {
+      await seedEntry(i, 3, { sleepHours: 5 });
+    }
+    for (let i = 10; i < 15; i++) {
+      await seedEntry(i, 9, { sleepHours: 8 });
+    }
+
+    const result = await client.callTool({ name: "get_patterns", arguments: {} });
+    const body = JSON.parse(textOf(result));
+
+    expect(body.patterns[0].p_value).toBeTypeOf("number");
+    expect(body.patterns[0].p_value).toBeLessThan(0.05);
+    expect(body.patterns[0].summary).toContain("statistically significant");
+  });
+
+  it("does not surface a pattern when the difference isn't statistically significant", async () => {
+    // Same mean gap as the passing sleep-pattern test, but with high
+    // within-group variance (mood bouncing all over) instead of a clean
+    // split — not enough evidence to call it a real effect.
+    const noisyMoods = [1, 10, 1, 10, 1];
+    for (let i = 0; i < 5; i++) {
+      await seedEntry(i, noisyMoods[i]!, { sleepHours: 5 });
+    }
+    for (let i = 10; i < 15; i++) {
+      await seedEntry(i, noisyMoods[i - 10]!, { sleepHours: 8 });
+    }
+
+    const result = await client.callTool({ name: "get_patterns", arguments: {} });
+
+    expect(textOf(result)).toContain("Not enough data yet");
   });
 
   it("returns only the top 3 patterns ranked by absolute effect size", async () => {

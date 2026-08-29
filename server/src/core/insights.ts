@@ -10,6 +10,7 @@
 import type postgres from "postgres";
 import { addDays, round, toISODate } from "../db/dates.js";
 import { computeCurrentStreak } from "../db/streak.js";
+import { welchTTest } from "../db/stats.js";
 
 const MILESTONES = [7, 14, 30, 90, 180, 365];
 const STREAK_NUDGE_THRESHOLD_DAYS = 3;
@@ -18,6 +19,12 @@ const TRENDS_PERIOD_DAYS = { week: 7, month: 30, quarter: 90 } as const;
 const STREAK_NUDGE_THRESHOLD = 7;
 const TAG_IMPACT_NUDGE_THRESHOLD = 0.5;
 const PATTERN_MIN_SAMPLE_SIZE = 5;
+// A pattern is only surfaced if a Welch's t-test on the two groups being
+// compared rejects the "no real difference" null hypothesis at this level —
+// i.e. there's a <5% chance the observed gap is just sampling noise. This is
+// the conventional significance threshold; it does not claim causation, only
+// that the association is unlikely to be a coincidence in the data itself.
+const PATTERN_SIGNIFICANCE_ALPHA = 0.05;
 
 const SLEEP_BUCKET_LABELS: Record<string, string> = {
   under_6: "under 6 hours",
@@ -542,6 +549,10 @@ export interface Pattern {
   type: "sleep" | "day_of_week" | "tag";
   summary: string;
   effect_size: number;
+  /** Two-tailed p-value from a Welch's t-test between the two groups this
+   * pattern compares. Always < PATTERN_SIGNIFICANCE_ALPHA — patterns that
+   * don't clear that bar are never returned in the first place. */
+  p_value: number;
   tip: string;
 }
 
@@ -549,16 +560,28 @@ function roundPattern(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+function roundPValue(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
+/** Short human-readable rendering of a p-value for use inside a summary sentence. */
+function formatPValue(p: number): string {
+  return p < 0.001 ? "p < 0.001" : `p = ${roundPValue(p)}`;
+}
+
 /**
  * Compares average mood across sleep-duration buckets (<6h, 6–7h, 7–8h,
  * 8h+) and reports the best vs. worst bucket, if each has at least
- * `PATTERN_MIN_SAMPLE_SIZE` entries.
+ * `PATTERN_MIN_SAMPLE_SIZE` entries and the difference passes a Welch's
+ * t-test at `PATTERN_SIGNIFICANCE_ALPHA`.
  */
 async function getSleepPattern(
   sql: postgres.Sql,
   userId: string,
 ): Promise<Pattern | null> {
-  const rows = await sql<{ bucket: string; avg_mood: number; count: number }[]>`
+  const rows = await sql<
+    { bucket: string; avg_mood: number; var_mood: number; count: number }[]
+  >`
     SELECT
       CASE
         WHEN sleep_hours < 6 THEN 'under_6'
@@ -567,6 +590,7 @@ async function getSleepPattern(
         ELSE 'eight_plus'
       END AS bucket,
       AVG(mood_rating) AS avg_mood,
+      VARIANCE(mood_rating) AS var_mood,
       COUNT(*)::int AS count
     FROM entries
     WHERE user_id = ${userId} AND sleep_hours IS NOT NULL
@@ -576,10 +600,20 @@ async function getSleepPattern(
 
   if (rows.length < 2) return null;
 
-  const withNumericMood = rows.map((row) => ({ ...row, avg_mood: Number(row.avg_mood) }));
+  const withNumericMood = rows.map((row) => ({
+    ...row,
+    avg_mood: Number(row.avg_mood),
+    var_mood: Number(row.var_mood),
+  }));
 
   const best = withNumericMood.reduce((a, b) => (b.avg_mood > a.avg_mood ? b : a));
   const worst = withNumericMood.reduce((a, b) => (b.avg_mood < a.avg_mood ? b : a));
+
+  const { pValue } = welchTTest(
+    { mean: best.avg_mood, variance: best.var_mood, n: best.count },
+    { mean: worst.avg_mood, variance: worst.var_mood, n: worst.count },
+  );
+  if (pValue >= PATTERN_SIGNIFICANCE_ALPHA) return null;
 
   const bestLabel = SLEEP_BUCKET_LABELS[best.bucket]!;
   const worstLabel = SLEEP_BUCKET_LABELS[worst.bucket]!;
@@ -588,10 +622,12 @@ async function getSleepPattern(
 
   return {
     type: "sleep",
+    p_value: roundPValue(pValue),
     summary:
       `When you sleep ${bestLabel}, your average mood is ${bestAvg} ` +
       `(based on ${best.count} entries), compared to ${worstAvg} when you sleep ` +
-      `${worstLabel} (based on ${worst.count} entries).`,
+      `${worstLabel} (based on ${worst.count} entries). This difference is ` +
+      `statistically significant (${formatPValue(pValue)}).`,
     effect_size: roundPattern(bestAvg - worstAvg),
     tip: `Try to get ${bestLabel} of sleep when possible — that's when your mood tends to be highest.`,
   };
@@ -599,14 +635,18 @@ async function getSleepPattern(
 
 /**
  * Compares average mood across days of the week and reports the best vs.
- * worst day, if each has at least `PATTERN_MIN_SAMPLE_SIZE` entries.
+ * worst day, if each has at least `PATTERN_MIN_SAMPLE_SIZE` entries and the
+ * difference passes a Welch's t-test at `PATTERN_SIGNIFICANCE_ALPHA`.
  */
 async function getDayOfWeekPattern(
   sql: postgres.Sql,
   userId: string,
 ): Promise<Pattern | null> {
-  const rows = await sql<{ dow: number; avg_mood: number; count: number }[]>`
-    SELECT EXTRACT(DOW FROM date)::int AS dow, AVG(mood_rating) AS avg_mood, COUNT(*)::int AS count
+  const rows = await sql<
+    { dow: number; avg_mood: number; var_mood: number; count: number }[]
+  >`
+    SELECT EXTRACT(DOW FROM date)::int AS dow, AVG(mood_rating) AS avg_mood,
+      VARIANCE(mood_rating) AS var_mood, COUNT(*)::int AS count
     FROM entries
     WHERE user_id = ${userId}
     GROUP BY dow
@@ -615,10 +655,20 @@ async function getDayOfWeekPattern(
 
   if (rows.length < 2) return null;
 
-  const withNumericMood = rows.map((row) => ({ ...row, avg_mood: Number(row.avg_mood) }));
+  const withNumericMood = rows.map((row) => ({
+    ...row,
+    avg_mood: Number(row.avg_mood),
+    var_mood: Number(row.var_mood),
+  }));
 
   const best = withNumericMood.reduce((a, b) => (b.avg_mood > a.avg_mood ? b : a));
   const worst = withNumericMood.reduce((a, b) => (b.avg_mood < a.avg_mood ? b : a));
+
+  const { pValue } = welchTTest(
+    { mean: best.avg_mood, variance: best.var_mood, n: best.count },
+    { mean: worst.avg_mood, variance: worst.var_mood, n: worst.count },
+  );
+  if (pValue >= PATTERN_SIGNIFICANCE_ALPHA) return null;
 
   const bestDay = WEEKDAY_NAMES[best.dow]!;
   const worstDay = WEEKDAY_NAMES[worst.dow]!;
@@ -627,9 +677,11 @@ async function getDayOfWeekPattern(
 
   return {
     type: "day_of_week",
+    p_value: roundPValue(pValue),
     summary:
       `Your mood is highest on ${bestDay}s (average ${bestAvg}, ${best.count} entries) ` +
-      `and lowest on ${worstDay}s (average ${worstAvg}, ${worst.count} entries).`,
+      `and lowest on ${worstDay}s (average ${worstAvg}, ${worst.count} entries). This ` +
+      `difference is statistically significant (${formatPValue(pValue)}).`,
     effect_size: roundPattern(bestAvg - worstAvg),
     tip:
       `Consider what makes ${bestDay}s better and see if you can bring some of that ` +
@@ -641,28 +693,57 @@ async function getDayOfWeekPattern(
  * Compares each tag's average mood against the overall average mood, for
  * every tag with at least `PATTERN_MIN_SAMPLE_SIZE` tagged entries.
  */
+/**
+ * For every tag used at least `PATTERN_MIN_SAMPLE_SIZE` times, compares the
+ * average mood on days with that tag against days *without* it (not
+ * against the overall average, which would double-count the tagged days
+ * themselves and understate the real gap) — then keeps only the
+ * comparisons that pass a Welch's t-test at `PATTERN_SIGNIFICANCE_ALPHA`.
+ */
 async function getTagPatterns(sql: postgres.Sql, userId: string): Promise<Pattern[]> {
-  const [overall] = await sql<{ avg_mood: number | null }[]>`
-    SELECT AVG(mood_rating) AS avg_mood FROM entries WHERE user_id = ${userId}
-  `;
-
-  if (overall!.avg_mood === null) return [];
-
-  const overallAvg = roundPattern(Number(overall!.avg_mood));
-
-  const rows = await sql<{ tag: string; avg_mood: number; count: number }[]>`
-    SELECT t.name AS tag, AVG(e.mood_rating) AS avg_mood, COUNT(*)::int AS count
+  const taggedRows = await sql<
+    { tag_id: number; tag: string; avg_mood: number; var_mood: number; count: number }[]
+  >`
+    SELECT t.id AS tag_id, t.name AS tag, AVG(e.mood_rating) AS avg_mood,
+      VARIANCE(e.mood_rating) AS var_mood, COUNT(*)::int AS count
     FROM entries e
     JOIN entry_tags et ON et.entry_id = e.id
     JOIN tags t ON t.id = et.tag_id
     WHERE e.user_id = ${userId}
-    GROUP BY t.name
+    GROUP BY t.id, t.name
     HAVING COUNT(*) >= ${PATTERN_MIN_SAMPLE_SIZE}
   `;
 
-  return rows.map((row) => {
-    const withAvg = roundPattern(Number(row.avg_mood));
-    const effectSize = roundPattern(withAvg - overallAvg);
+  const patterns: Pattern[] = [];
+
+  // One extra query per qualifying tag (typically a handful) to get the
+  // "everything else" comparison group — fine at this app's scale, and
+  // keeps each comparison an honest two independent groups rather than a
+  // group vs. a total that includes it.
+  for (const row of taggedRows) {
+    const [untagged] = await sql<{ avg_mood: number | null; var_mood: number | null; count: number }[]>`
+      SELECT AVG(mood_rating) AS avg_mood, VARIANCE(mood_rating) AS var_mood, COUNT(*)::int AS count
+      FROM entries e
+      WHERE e.user_id = ${userId}
+        AND NOT EXISTS (
+          SELECT 1 FROM entry_tags et WHERE et.entry_id = e.id AND et.tag_id = ${row.tag_id}
+        )
+    `;
+
+    if (!untagged || untagged.count < PATTERN_MIN_SAMPLE_SIZE) continue;
+
+    const taggedAvg = Number(row.avg_mood);
+    const untaggedAvg = Number(untagged.avg_mood);
+
+    const { pValue } = welchTTest(
+      { mean: taggedAvg, variance: Number(row.var_mood), n: row.count },
+      { mean: untaggedAvg, variance: Number(untagged.var_mood), n: untagged.count },
+    );
+    if (pValue >= PATTERN_SIGNIFICANCE_ALPHA) continue;
+
+    const withAvg = roundPattern(taggedAvg);
+    const withoutAvg = roundPattern(untaggedAvg);
+    const effectSize = roundPattern(withAvg - withoutAvg);
     const sign = effectSize >= 0 ? "+" : "";
 
     const tip =
@@ -670,25 +751,33 @@ async function getTagPatterns(sql: postgres.Sql, userId: string): Promise<Patter
         ? `Try to make more room for "${row.tag}" in your routine — it tends to lift your mood.`
         : `It might be worth reflecting on what's happening around "${row.tag}" days and how to soften its impact.`;
 
-    return {
-      type: "tag" as const,
+    patterns.push({
+      type: "tag",
+      p_value: roundPValue(pValue),
       summary:
-        `Days tagged "${row.tag}" average ${withAvg} (${row.count} entries) vs your ` +
-        `overall average of ${overallAvg} (${sign}${effectSize}).`,
+        `Days tagged "${row.tag}" average ${withAvg} (${row.count} entries) vs ${withoutAvg} ` +
+        `on days without that tag (${untagged.count} entries, ${sign}${effectSize}). This ` +
+        `difference is statistically significant (${formatPValue(pValue)}).`,
       effect_size: effectSize,
       tip,
-    };
-  });
+    });
+  }
+
+  return patterns;
 }
 
 /**
  * Surfaces the strongest correlations between mood and sleep duration, day
  * of week, and tags — each with numbers and a tip. Requires at least 5
- * entries per group to surface a pattern.
+ * entries per group, and the two groups being compared must pass a Welch's
+ * t-test at `PATTERN_SIGNIFICANCE_ALPHA` (default 5%) — this rules out
+ * "patterns" that are just a coincidence of a small sample, though it still
+ * only establishes association, not causation.
  *
  * @param sql - Open database connection.
  * @param userId - The authenticated user's id.
- * @returns Up to the top 3 patterns by absolute effect size; empty if none qualify.
+ * @returns Up to the top 3 statistically significant patterns by absolute
+ *   effect size; empty if none qualify.
  */
 export async function getPatterns(sql: postgres.Sql, userId: string): Promise<Pattern[]> {
   const candidates: Pattern[] = [
