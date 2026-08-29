@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useTheme } from "../lib/ThemeContext";
 import { useStreak } from "../lib/StreakContext";
 
@@ -36,11 +36,13 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <img
-          src={theme === "dark" ? "/logo-dark.png" : "/logo.png"}
-          alt="Orium"
-          className="mb-6 h-12 w-auto object-contain object-left"
-        />
+        <Link to="/today" onClick={onClose} className="mb-6 block w-fit">
+          <img
+            src={theme === "dark" ? "/logo-dark.png" : "/logo.png"}
+            alt="Orium — go to Today"
+            className="h-12 w-auto object-contain object-left"
+          />
+        </Link>
 
         <nav className="flex flex-1 flex-col gap-1">
           {NAV_ITEMS.map((item) => (
