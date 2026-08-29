@@ -21,11 +21,25 @@ export function Today() {
 
   const today = toISODate(new Date());
 
-  useEffect(() => {
+  function loadSparkline(): Promise<void> {
     const now = new Date();
     const from = toISODate(addDays(now, -6));
     const to = toISODate(now);
 
+    return api
+      .listEntries({ from, to, limit: 7 })
+      .then((entries) => {
+        const byDate = new Map(entries.map((entry) => [entry.date, entry]));
+        const slots = Array.from({ length: 7 }, (_, i) => {
+          const date = toISODate(addDays(now, -6 + i));
+          return { date, entry: byDate.get(date) ?? null };
+        });
+        setSparkline(slots);
+      })
+      .catch(() => undefined);
+  }
+
+  useEffect(() => {
     Promise.all([
       api.getToday().then(setExisting),
       api
@@ -36,17 +50,7 @@ export function Today() {
         .getPatterns()
         .then((patterns) => setPattern(patterns[0] ?? null))
         .catch(() => undefined),
-      api
-        .listEntries({ from, to, limit: 7 })
-        .then((entries) => {
-          const byDate = new Map(entries.map((entry) => [entry.date, entry]));
-          const slots = Array.from({ length: 7 }, (_, i) => {
-            const date = toISODate(addDays(now, -6 + i));
-            return { date, entry: byDate.get(date) ?? null };
-          });
-          setSparkline(slots);
-        })
-        .catch(() => undefined),
+      loadSparkline(),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -54,6 +58,11 @@ export function Today() {
     setExisting(entry);
     setEditing(false);
     refreshStreak();
+    void loadSparkline();
+    api
+      .getSummary("week")
+      .then(setSummary)
+      .catch(() => undefined);
   }
 
   async function handleDelete(): Promise<void> {
@@ -62,6 +71,11 @@ export function Today() {
     setExisting(null);
     setEditing(false);
     refreshStreak();
+    void loadSparkline();
+    api
+      .getSummary("week")
+      .then(setSummary)
+      .catch(() => undefined);
   }
 
   if (loading) return <LoadingScreen />;
