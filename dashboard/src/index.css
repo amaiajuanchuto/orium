@@ -22,6 +22,9 @@
   --border-2: rgba(61, 71, 45, 0.12);
   --border-3: rgba(61, 71, 45, 0.16);
   --shadow: rgba(61, 71, 45, 0.05);
+  --danger-bg: #fbeae5;
+  --danger-border: #e3b3a3;
+  --danger-ink: #9c3b23;
 }
 
 [data-theme="dark"] {
@@ -46,6 +49,9 @@
   --border-2: rgba(254, 248, 229, 0.14);
   --border-3: rgba(254, 248, 229, 0.22);
   --shadow: rgba(0, 0, 0, 0.28);
+  --danger-bg: #4a2c22;
+  --danger-border: #7a4230;
+  --danger-ink: #f0a98d;
 }
 
 @theme {
@@ -72,6 +78,9 @@
   --color-border-1: var(--border-1);
   --color-border-2: var(--border-2);
   --color-border-3: var(--border-3);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  --color-danger-ink: var(--danger-ink);
 }
 
 body {

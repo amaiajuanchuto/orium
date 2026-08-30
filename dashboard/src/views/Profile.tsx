@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
-import { api, type Profile as ProfileData, type UpsertProfileInput } from "../lib/api";
+import {
+  api,
+  ApiError,
+  type Profile as ProfileData,
+  type UpsertProfileInput,
+} from "../lib/api";
 import { LoadingScreen } from "../components/LoadingScreen";
+import { ErrorBanner } from "../components/ErrorBanner";
 
 const PRONOUN_OPTIONS = ["she/her", "he/him", "they/them", "other"];
 
@@ -117,8 +123,12 @@ export function Profile() {
   const [age, setAge] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
+    setLoadError(false);
     api
       .getProfile()
       .then((p) => {
@@ -127,12 +137,20 @@ export function Profile() {
         setAge(p?.age ?? "");
         setNote(p?.note ?? "");
       })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
-  }, []);
+  }, [reloadToken]);
 
   async function save(input: UpsertProfileInput): Promise<void> {
-    const updated = await api.upsertProfile(input);
-    setProfile(updated);
+    setSaveError(null);
+    try {
+      const updated = await api.upsertProfile(input);
+      setProfile(updated);
+    } catch (err) {
+      setSaveError(
+        err instanceof ApiError ? err.message : "Couldn't save — please try again.",
+      );
+    }
   }
 
   function toggleMulti(key: "exercise" | "hobbies", value: string): void {
@@ -147,12 +165,29 @@ export function Profile() {
 
   if (loading) return <LoadingScreen />;
 
+  if (loadError) {
+    return (
+      <div className="max-w-2xl">
+        <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">Profile</h1>
+        <ErrorBanner
+          message="Couldn't load your profile."
+          onRetry={() => {
+            setLoading(true);
+            setReloadToken((n) => n + 1);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl">
       <h1 className="mb-1 font-heading text-2xl font-semibold text-ink">Profile</h1>
       <p className="mb-6 text-sm text-muted">
         A little context helps Orium notice more meaningful patterns.
       </p>
+
+      {saveError && <ErrorBanner message={saveError} />}
 
       <div className="mb-6 rounded-2xl border border-border-1 bg-surface p-6">
         <div className="mb-5 flex items-center gap-4">

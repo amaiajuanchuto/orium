@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type Pattern } from "../lib/api";
 import { LoadingScreen } from "../components/LoadingScreen";
+import { ErrorBanner } from "../components/ErrorBanner";
 
 const TYPE_LABELS: Record<Pattern["type"], string> = {
   sleep: "Sleep",
@@ -14,13 +15,19 @@ function formatPValue(p: number): string {
 
 export function Patterns() {
   const [patterns, setPatterns] = useState<Pattern[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
+    setLoadError(false);
     api
       .getPatterns()
       .then(setPatterns)
-      .catch(() => setPatterns([]));
-  }, []);
+      .catch(() => {
+        setPatterns([]);
+        setLoadError(true);
+      });
+  }, [reloadToken]);
 
   if (patterns === null) return <LoadingScreen />;
 
@@ -31,7 +38,14 @@ export function Patterns() {
         What tends to lift your mood — and what weighs on it.
       </p>
 
-      {patterns.length === 0 && (
+      {loadError && (
+        <ErrorBanner
+          message="Couldn't load your patterns."
+          onRetry={() => setReloadToken((n) => n + 1)}
+        />
+      )}
+
+      {!loadError && patterns.length === 0 && (
         <p className="text-muted">
           Not enough data yet to surface patterns — keep logging and check back soon.
         </p>

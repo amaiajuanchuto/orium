@@ -4,6 +4,7 @@ import { colorForMood } from "../lib/mood";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { EntryForm } from "../components/EntryForm";
 import { EditDeleteButtons } from "../components/EditDeleteButtons";
+import { ErrorBanner } from "../components/ErrorBanner";
 import {
   addMonths,
   daysInMonth,
@@ -21,6 +22,8 @@ export function Calendar() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth() + 1;
@@ -30,6 +33,7 @@ export function Calendar() {
     setSelectedDate(null);
     setEditing(false);
     setLoading(true);
+    setLoadError(false);
     const from = formatISOFromParts(year, month, 1);
     const to = formatISOFromParts(year, month, daysInMonth(monthDate));
 
@@ -40,9 +44,12 @@ export function Calendar() {
         for (const entry of list) byDate[entry.date] = entry;
         setEntries(byDate);
       })
-      .catch(() => setEntries({}))
+      .catch(() => {
+        setEntries({});
+        setLoadError(true);
+      })
       .finally(() => setLoading(false));
-  }, [year, month, monthDate]);
+  }, [year, month, monthDate, reloadToken]);
 
   const firstDow = new Date(year, month - 1, 1).getDay();
   const totalDays = daysInMonth(monthDate);
@@ -79,6 +86,13 @@ export function Calendar() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <ErrorBanner
+          message="Couldn't load this month's entries."
+          onRetry={() => setReloadToken((n) => n + 1)}
+        />
+      )}
 
       <div
         className={`grid grid-cols-1 items-start gap-6 ${selectedDate ? "lg:grid-cols-[1.7fr_1fr]" : ""}`}

@@ -4,6 +4,7 @@ import { colorForMood } from "../lib/mood";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { EntryForm } from "../components/EntryForm";
 import { EditDeleteButtons } from "../components/EditDeleteButtons";
+import { ErrorBanner } from "../components/ErrorBanner";
 
 export function Journal() {
   const [entries, setEntries] = useState<EntryWithTags[]>([]);
@@ -11,22 +12,28 @@ export function Journal() {
   const [submittedKeyword, setSubmittedKeyword] = useState("");
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(false);
     const request = submittedKeyword
       ? api.search(submittedKeyword)
       : api.listEntries({ limit: 50 });
 
     request
       .then(setEntries)
-      .catch(() => setEntries([]))
+      .catch(() => {
+        setEntries([]);
+        setLoadError(true);
+      })
       .finally(() => {
         setLoading(false);
         setInitialLoad(false);
       });
-  }, [submittedKeyword]);
+  }, [submittedKeyword, reloadToken]);
 
   if (initialLoad) return <LoadingScreen />;
 
@@ -57,9 +64,16 @@ export function Journal() {
         </button>
       </form>
 
+      {loadError && (
+        <ErrorBanner
+          message="Couldn't load your entries."
+          onRetry={() => setReloadToken((n) => n + 1)}
+        />
+      )}
+
       {loading && <LoadingScreen />}
 
-      {!loading && entries.length === 0 && (
+      {!loading && !loadError && entries.length === 0 && (
         <p className="text-muted">No entries found.</p>
       )}
 

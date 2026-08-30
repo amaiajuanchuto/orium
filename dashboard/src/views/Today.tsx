@@ -6,6 +6,7 @@ import { useStreak } from "../lib/StreakContext";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { EntryForm } from "../components/EntryForm";
 import { EditDeleteButtons } from "../components/EditDeleteButtons";
+import { ErrorBanner } from "../components/ErrorBanner";
 
 export function Today() {
   const { refreshStreak } = useStreak();
@@ -18,6 +19,8 @@ export function Today() {
     { date: string; entry: EntryWithTags | null }[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const today = toISODate(new Date());
 
@@ -40,8 +43,12 @@ export function Today() {
   }
 
   useEffect(() => {
+    setLoadError(false);
     Promise.all([
-      api.getToday(today).then(setExisting),
+      api
+        .getToday(today)
+        .then(setExisting)
+        .catch(() => setLoadError(true)),
       api
         .getSummary("week")
         .then(setSummary)
@@ -52,7 +59,7 @@ export function Today() {
         .catch(() => undefined),
       loadSparkline(),
     ]).finally(() => setLoading(false));
-  }, []);
+  }, [reloadToken]);
 
   function handleSaved(entry: EntryWithTags): void {
     setExisting(entry);
@@ -94,7 +101,14 @@ export function Today() {
           })}
         </p>
 
-        {existing && !editing ? (
+        {loadError && (
+          <ErrorBanner
+            message="Couldn't load today's entry — showing the form could overwrite it, so it's hidden until this loads."
+            onRetry={() => setReloadToken((n) => n + 1)}
+          />
+        )}
+
+        {loadError ? null : existing && !editing ? (
           <div>
             <div className="mb-5 flex items-center gap-4">
               <div

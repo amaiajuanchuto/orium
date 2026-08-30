@@ -12,6 +12,7 @@ import {
 import { api, type EntryWithTags, type MoodTrendsResult } from "../lib/api";
 import { addDays, toISODate } from "../lib/date";
 import { LoadingScreen } from "../components/LoadingScreen";
+import { ErrorBanner } from "../components/ErrorBanner";
 
 type Period = "week" | "month" | "quarter";
 
@@ -59,9 +60,12 @@ export function Trends() {
   const [entries, setEntries] = useState<EntryWithTags[]>([]);
   const [trends, setTrends] = useState<MoodTrendsResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(false);
     const days = PERIODS.find((p) => p.id === period)!.days;
     const today = new Date();
     const from = toISODate(addDays(today, -(days - 1)));
@@ -71,13 +75,19 @@ export function Trends() {
       api
         .listEntries({ from, to, limit: 100 })
         .then((list) => setEntries([...list].reverse()))
-        .catch(() => setEntries([])),
+        .catch(() => {
+          setEntries([]);
+          setLoadError(true);
+        }),
       api
         .getMoodTrends(period)
         .then(setTrends)
-        .catch(() => setTrends(null)),
+        .catch(() => {
+          setTrends(null);
+          setLoadError(true);
+        }),
     ]).finally(() => setLoading(false));
-  }, [period]);
+  }, [period, reloadToken]);
 
   const chartData = entries.map((e) => ({
     date: e.date.slice(5),
@@ -109,10 +119,19 @@ export function Trends() {
         </div>
       </div>
 
+      {loadError && (
+        <ErrorBanner
+          message="Couldn't load trends."
+          onRetry={() => setReloadToken((n) => n + 1)}
+        />
+      )}
+
       <div className="mb-6 rounded-2xl border border-border-1 bg-surface p-5">
         {chartData.length === 0 ? (
           <p className="py-12 text-center text-muted">
-            No entries logged in this period yet.
+            {loadError
+              ? "Couldn't load the chart data."
+              : "No entries logged in this period yet."}
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={280}>
