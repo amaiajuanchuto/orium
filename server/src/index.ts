@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express, { type NextFunction, type Request, type Response } from "express";
+import rateLimit from "express-rate-limit";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
@@ -121,6 +122,17 @@ async function requireAuth(
 }
 
 const app = express();
+
+// Render terminates TLS and proxies every request through a single hop,
+// setting X-Forwarded-For to the real client IP — trust exactly that hop so
+// express-rate-limit (and req.ip generally) sees the client, not Render's LB.
+app.set("trust proxy", 1);
+
+// Generous limits: this protects against runaway/malicious clients, not
+// normal use — the dashboard polls several endpoints per page load.
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 600 });
+const authPageLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60 });
+
 app.use(
   mcpAuthMetadataRouter({
     oauthMetadata,
@@ -128,8 +140,8 @@ app.use(
     resourceName: "Orium",
   }),
 );
-app.use("/mcp", requireAuth);
-app.use("/api/v1", createApiRouter(sql, verifySupabaseToken));
+app.use("/mcp", apiLimiter, requireAuth);
+app.use("/api/v1", apiLimiter, createApiRouter(sql, verifySupabaseToken));
 
 app.post("/mcp", express.json(), async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
@@ -199,11 +211,11 @@ app.get("/health", (_req, res) => {
 // Login and OAuth consent pages for the Supabase OAuth Server flow — these
 // are the human-facing pages Supabase redirects to, since it doesn't host
 // its own consent UI. Unauthenticated by design: they *are* the auth step.
-app.get("/login", (_req, res) => {
+app.get("/login", authPageLimiter, (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "login.html"));
 });
 
-app.get("/oauth/consent", (_req, res) => {
+app.get("/oauth/consent", authPageLimiter, (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "oauth-consent.html"));
 });
 
