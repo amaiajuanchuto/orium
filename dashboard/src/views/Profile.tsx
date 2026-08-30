@@ -7,6 +7,7 @@ import {
 } from "../lib/api";
 import { LoadingScreen } from "../components/LoadingScreen";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { DangerZone } from "../components/DangerZone";
 
 const PRONOUN_OPTIONS = ["she/her", "he/him", "they/them", "other"];
 
@@ -281,10 +282,16 @@ export function Profile() {
         />
       </div>
 
-      <p className="text-xs text-faint">
+      <p className="mb-6 text-xs text-faint">
         This information is private to your account and only used to help Orium surface
-        more relevant patterns for you.
+        more relevant patterns for you. See our{" "}
+        <a href="/privacy" className="underline" target="_blank" rel="noreferrer">
+          privacy policy
+        </a>
+        .
       </p>
+
+      <DangerZone />
     </div>
   );
 }

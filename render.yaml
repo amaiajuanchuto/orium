@@ -9,6 +9,8 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: SUPABASE_URL
         value: https://imxmcavkzpbbqbhcefkj.supabase.co
       - key: PUBLIC_URL

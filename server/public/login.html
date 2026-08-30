@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -76,12 +76,18 @@
         <button type="submit" id="submitButton">Log in</button>
       </form>
       <div class="error" id="error"></div>
+      <p style="margin-top: 16px; font-size: 0.8rem; color: #666; text-align: center">
+        <a href="/privacy" target="_blank" rel="noreferrer">Privacy policy</a>
+      </p>
     </div>
 
     <script>
       const SUPABASE_URL = "https://imxmcavkzpbbqbhcefkj.supabase.co";
       const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_8aMCvghGGRHIwMogWkHAzA_yl1yFI9N";
-      const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+      const supabaseClient = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_PUBLISHABLE_KEY,
+      );
 
       // Only ever redirect to a same-site relative path, never an external
       // URL — the `redirect` query param is otherwise attacker-controllable
@@ -107,7 +113,10 @@
         const email = document.getElementById("email").value;
         const password = document.getElementById("password").value;
 
-        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        const { error } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password,
+        });
 
         if (error) {
           errorEl.textContent = error.message;

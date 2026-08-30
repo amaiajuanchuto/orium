@@ -22,8 +22,10 @@ import {
   searchEntries,
   updateEntry,
 } from "../core/entries.js";
+import { exportUserData } from "../core/export.js";
 import { getMoodTrends, getPatterns, getStreak, getSummary } from "../core/insights.js";
 import { getProfile, upsertProfile } from "../core/profile.js";
+import { deleteSupabaseUser } from "../auth/admin.js";
 import { listTagNames } from "../db/tags.js";
 import { DATE_REGEX } from "../db/types.js";
 import {
@@ -143,10 +145,15 @@ function requireApiAuth(verifySupabaseToken: TokenVerifier) {
  * @param sql - Open database connection shared across requests.
  * @param verifySupabaseToken - Verifies a bearer token and returns the
  *   authenticated user's id, or null if invalid.
+ * @param supabaseUrl - The Supabase project URL, used for account deletion.
+ * @param supabaseServiceRoleKey - Admin key used only to delete a user's
+ *   own Auth account on request; never exposed to the client.
  */
 export function createApiRouter(
   sql: postgres.Sql,
   verifySupabaseToken: TokenVerifier,
+  supabaseUrl: string,
+  supabaseServiceRoleKey: string,
 ): Router {
   const router = express.Router();
 
@@ -267,6 +274,24 @@ export function createApiRouter(
     if (!body) return;
 
     res.json(await upsertProfile(sql, req.userId!, body));
+  });
+
+  router.get("/export", async (req, res) => {
+    const data = await exportUserData(sql, req.userId!);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="orium-export-${new Date().toISOString().slice(0, 10)}.json"`,
+    );
+    res.json(data);
+  });
+
+  // Permanently deletes the caller's own account. There is no undo: the
+  // Supabase Auth user is deleted outright, and every table with an
+  // `ON DELETE CASCADE` foreign key to it (entries, profiles) is cleaned
+  // up by Postgres as a result.
+  router.delete("/account", async (req, res) => {
+    await deleteSupabaseUser(supabaseUrl, supabaseServiceRoleKey, req.userId!);
+    res.status(204).send();
   });
 
   // Express 5 forwards rejected promises from the async handlers above to

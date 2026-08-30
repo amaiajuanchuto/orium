@@ -126,6 +126,12 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface UserExport {
+  exported_at: string;
+  profile: Profile | null;
+  entries: EntryWithTags[];
+}
+
 export interface UpsertProfileInput {
   name?: string | null;
   age?: string | null;
@@ -224,6 +230,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(input),
     }),
+
+  exportData: () => request<UserExport>("/export"),
+
+  deleteAccount: () => request<void>("/account", { method: "DELETE" }),
 };
 
 export { ApiError };

@@ -1,6 +1,6 @@
 import express from "express";
 import request from "supertest";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type postgres from "postgres";
 import { createDatabase } from "../db/connection.js";
 import { ensureTestUsers, OTHER_TEST_USER_ID, TEST_USER_ID } from "../db/testUser.js";
@@ -19,9 +19,15 @@ async function fakeVerify(token: string): Promise<string | null> {
   return TOKEN_TO_USER[token] ?? null;
 }
 
+const FAKE_SUPABASE_URL = "https://fake.supabase.co";
+const FAKE_SERVICE_ROLE_KEY = "fake-service-role-key";
+
 function buildApp(sql: postgres.Sql) {
   const app = express();
-  app.use("/api/v1", createApiRouter(sql, fakeVerify));
+  app.use(
+    "/api/v1",
+    createApiRouter(sql, fakeVerify, FAKE_SUPABASE_URL, FAKE_SERVICE_ROLE_KEY),
+  );
   return app;
 }
 
@@ -476,6 +482,75 @@ describe("API router", () => {
         .send({ exercise: "not-an-array" });
 
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe("GET /export", () => {
+    it("includes entries and profile", async () => {
+      await createSeedEntry();
+      await request(app)
+        .put("/api/v1/profile")
+        .set("Authorization", "Bearer test-token")
+        .send({ name: "Amaia" });
+
+      const res = await request(app)
+        .get("/api/v1/export")
+        .set("Authorization", "Bearer test-token");
+
+      expect(res.status).toBe(200);
+      expect(res.body.profile).toMatchObject({ name: "Amaia" });
+      expect(res.body.entries).toHaveLength(1);
+      expect(res.body.exported_at).toBeDefined();
+    });
+
+    it("only includes this user's data", async () => {
+      await createSeedEntry("other-token");
+
+      const res = await request(app)
+        .get("/api/v1/export")
+        .set("Authorization", "Bearer test-token");
+
+      expect(res.body.entries).toHaveLength(0);
+    });
+  });
+
+  describe("DELETE /account", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("calls the Supabase admin API for the caller's own user id and returns 204", async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      const res = await request(app)
+        .delete("/api/v1/account")
+        .set("Authorization", "Bearer test-token");
+
+      expect(res.status).toBe(204);
+      expect(fetchMock).toHaveBeenCalledWith(
+        `${FAKE_SUPABASE_URL}/auth/v1/admin/users/${TEST_USER_ID}`,
+        expect.objectContaining({
+          method: "DELETE",
+          headers: expect.objectContaining({
+            apikey: FAKE_SERVICE_ROLE_KEY,
+            Authorization: `Bearer ${FAKE_SERVICE_ROLE_KEY}`,
+          }),
+        }),
+      );
+    });
+
+    it("returns 500 when the Supabase admin API call fails", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response("nope", { status: 500 })),
+      );
+
+      const res = await request(app)
+        .delete("/api/v1/account")
+        .set("Authorization", "Bearer test-token");
+
+      expect(res.status).toBe(500);
     });
   });
 });

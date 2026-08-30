@@ -253,6 +253,14 @@ export function Login() {
                   </>
                 )}
               </p>
+
+              <p className="mt-3 text-center text-xs text-faint">
+                By continuing you agree to our{" "}
+                <a href="/privacy" className="underline" target="_blank" rel="noreferrer">
+                  privacy policy
+                </a>
+                .
+              </p>
             </form>
           )}
         </div>

@@ -41,6 +41,13 @@ if (!SUPABASE_URL) {
   throw new Error("SUPABASE_URL environment variable is required");
 }
 
+// Admin-only key, used solely to delete a user's own Auth account on
+// request (see /api/v1/account) — never exposed to the client.
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("SUPABASE_SERVICE_ROLE_KEY environment variable is required");
+}
+
 const PUBLIC_URL = process.env.PUBLIC_URL;
 if (!PUBLIC_URL) {
   throw new Error("PUBLIC_URL environment variable is required");
@@ -141,7 +148,11 @@ app.use(
   }),
 );
 app.use("/mcp", apiLimiter, requireAuth);
-app.use("/api/v1", apiLimiter, createApiRouter(sql, verifySupabaseToken));
+app.use(
+  "/api/v1",
+  apiLimiter,
+  createApiRouter(sql, verifySupabaseToken, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY),
+);
 
 app.post("/mcp", express.json(), async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
@@ -219,15 +230,22 @@ app.get("/oauth/consent", authPageLimiter, (_req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, "oauth-consent.html"));
 });
 
+app.get("/privacy", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "privacy.html"));
+});
+
 // The dashboard SPA, built separately (see dashboard/) and served as
 // static files from this same process — see the "same service" decision
 // in README for why it isn't a separate deployment. Client-side routes
 // (e.g. /today, /journal) all fall back to index.html so React Router can
 // take over; this must come last so it doesn't shadow /mcp, /api/v1, etc.
 app.use(express.static(DASHBOARD_DIR));
-app.get(/^(?!\/mcp|\/api\/v1|\/health|\/login|\/oauth\/consent).*/, (_req, res) => {
-  res.sendFile(path.join(DASHBOARD_DIR, "index.html"));
-});
+app.get(
+  /^(?!\/mcp|\/api\/v1|\/health|\/login|\/oauth\/consent|\/privacy).*/,
+  (_req, res) => {
+    res.sendFile(path.join(DASHBOARD_DIR, "index.html"));
+  },
+);
 
 const httpServer = app.listen(PORT, () => {
   console.error(`Orium MCP server listening on port ${PORT}`);

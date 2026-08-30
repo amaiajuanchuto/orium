@@ -71,6 +71,7 @@ Orium is an MCP server over **Streamable HTTP**, not stdio — it runs as a long
 ```bash
 DATABASE_URL="postgresql://postgres:[password]@[host]:6543/postgres" \
 SUPABASE_URL="https://<project-ref>.supabase.co" \
+SUPABASE_SERVICE_ROLE_KEY="eyJ..." \
 PUBLIC_URL="https://your-app.onrender.com" \
 PORT=3000 \
   npm start
@@ -78,6 +79,7 @@ PORT=3000 \
 
 - `DATABASE_URL` — required, your Postgres connection string.
 - `SUPABASE_URL` — required, your Supabase project URL — used to validate OAuth access tokens against its JWKS.
+- `SUPABASE_SERVICE_ROLE_KEY` — required, your Supabase project's **service role** key (Project Settings → API) — used only to delete a user's own Auth account on request (`DELETE /api/v1/account`), never exposed to the client. Keep this secret; it bypasses RLS and can act as any user.
 - `PUBLIC_URL` — required, the public URL this server is reachable at — used to advertise the OAuth resource-server metadata clients need for discovery.
 - `PORT` — optional, defaults to `3000`.
 - `GET /health` returns `200 OK` and needs no auth, for use with your host's health checks.
