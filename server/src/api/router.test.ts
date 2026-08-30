@@ -212,6 +212,17 @@ describe("API router", () => {
 
       expect(res.status).toBe(409);
     });
+
+    it("returns 400 for notes over the length limit", async () => {
+      const seed = await createSeedEntry();
+
+      const res = await request(app)
+        .patch(`/api/v1/entries/${seed.id}`)
+        .set("Authorization", "Bearer test-token")
+        .send({ notes: "x".repeat(10_001) });
+
+      expect(res.status).toBe(400);
+    });
   });
 
   describe("DELETE /entries/:id", () => {

@@ -26,7 +26,13 @@ import { getMoodTrends, getPatterns, getStreak, getSummary } from "../core/insig
 import { getProfile, upsertProfile } from "../core/profile.js";
 import { listTagNames } from "../db/tags.js";
 import { DATE_REGEX } from "../db/types.js";
-import { dateSchema } from "../db/validation.js";
+import {
+  dateSchema,
+  notesSchema,
+  profileListSchema,
+  profileTextSchema,
+  tagsArraySchema,
+} from "../db/validation.js";
 import type { TokenVerifier } from "../auth.js";
 
 const moodOrEnergySchema = z.number().int().min(1).max(10);
@@ -36,8 +42,8 @@ const createEntryBodySchema = z.object({
   mood_rating: moodOrEnergySchema,
   energy_level: moodOrEnergySchema,
   sleep_hours: z.number().min(0).max(24).optional(),
-  notes: z.string().optional(),
-  tags: z.array(z.string().min(1)).optional(),
+  notes: notesSchema.optional(),
+  tags: tagsArraySchema.optional(),
 });
 
 const updateEntryBodySchema = z.object({
@@ -45,8 +51,8 @@ const updateEntryBodySchema = z.object({
   mood_rating: moodOrEnergySchema.optional(),
   energy_level: moodOrEnergySchema.optional(),
   sleep_hours: z.number().min(0).max(24).optional(),
-  notes: z.string().optional(),
-  tags: z.array(z.string().min(1)).optional(),
+  notes: notesSchema.optional(),
+  tags: tagsArraySchema.optional(),
 });
 
 const listEntriesQuerySchema = z.object({
@@ -77,15 +83,15 @@ const idParamSchema = z.object({
 });
 
 const upsertProfileBodySchema = z.object({
-  name: z.string().nullable().optional(),
-  age: z.string().nullable().optional(),
-  pronouns: z.string().nullable().optional(),
-  work: z.string().nullable().optional(),
-  work_rhythm: z.string().nullable().optional(),
-  exercise: z.array(z.string().min(1)).optional(),
-  diet: z.string().nullable().optional(),
-  hobbies: z.array(z.string().min(1)).optional(),
-  note: z.string().nullable().optional(),
+  name: profileTextSchema.nullable().optional(),
+  age: profileTextSchema.nullable().optional(),
+  pronouns: profileTextSchema.nullable().optional(),
+  work: profileTextSchema.nullable().optional(),
+  work_rhythm: profileTextSchema.nullable().optional(),
+  exercise: profileListSchema.optional(),
+  diet: profileTextSchema.nullable().optional(),
+  hobbies: profileListSchema.optional(),
+  note: notesSchema.nullable().optional(),
 });
 
 /**

@@ -12,3 +12,18 @@ export const dateSchema = z
     (date) => date <= new Date().toISOString().slice(0, 10),
     "date cannot be in the future",
   );
+
+/** Free-text note field shared by entries and profiles. */
+export const notesSchema = z.string().max(10_000);
+
+/** A single tag name. */
+export const tagSchema = z.string().min(1).max(50);
+
+/** The `tags` array accepted by entry create/update. */
+export const tagsArraySchema = z.array(tagSchema).max(20);
+
+/** Short free-text profile field (name, pronouns, work, etc.). */
+export const profileTextSchema = z.string().max(500);
+
+/** A list-style profile field (exercise, hobbies): short strings, capped count. */
+export const profileListSchema = z.array(z.string().min(1).max(200)).max(20);

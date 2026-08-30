@@ -5,7 +5,7 @@ import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { EntryDateConflictError, updateEntry } from "../core/entries.js";
-import { dateSchema } from "../db/validation.js";
+import { dateSchema, notesSchema, tagsArraySchema } from "../db/validation.js";
 
 const updateEntryInputSchema = {
   id: z.number().int().positive(),
@@ -13,8 +13,8 @@ const updateEntryInputSchema = {
   mood_rating: z.number().int().min(1).max(10).optional(),
   energy_level: z.number().int().min(1).max(10).optional(),
   sleep_hours: z.number().min(0).max(24).optional(),
-  notes: z.string().optional(),
-  tags: z.array(z.string().min(1)).optional(),
+  notes: notesSchema.optional(),
+  tags: tagsArraySchema.optional(),
 };
 
 /**
