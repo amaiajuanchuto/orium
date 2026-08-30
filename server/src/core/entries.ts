@@ -7,6 +7,9 @@ import type postgres from "postgres";
 import { upsertTag } from "../db/tags.js";
 import type { Entry, EntryWithTags } from "../db/types.js";
 
+/** Thrown when an update would move an entry onto a date that already has one for this user. */
+export class EntryDateConflictError extends Error {}
+
 export interface CreateEntryInput {
   date: string;
   mood_rating: number;
@@ -154,7 +157,16 @@ export async function updateEntry(
     if (input.notes !== undefined) updates.notes = input.notes;
 
     if (Object.keys(updates).length > 0) {
-      await tx`UPDATE entries SET ${tx(updates)} WHERE id = ${id} AND user_id = ${userId}`;
+      try {
+        await tx`UPDATE entries SET ${tx(updates)} WHERE id = ${id} AND user_id = ${userId}`;
+      } catch (err) {
+        if (err && typeof err === "object" && "code" in err && err.code === "23505") {
+          throw new EntryDateConflictError(
+            `An entry already exists for ${input.date}. Update that entry instead, or choose a different date.`,
+          );
+        }
+        throw err;
+      }
     } else {
       // No scalar fields changed (e.g. a tags-only update) — still touch
       // the row so the updated_at trigger fires, matching this function's

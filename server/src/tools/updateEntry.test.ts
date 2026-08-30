@@ -156,6 +156,21 @@ describe("update_entry tool", () => {
     expect(result.isError).toBe(true);
   });
 
+  it("returns an error when moved onto a date that already has an entry", async () => {
+    const seed = await createSeedEntry();
+    await client.callTool({
+      name: "create_entry",
+      arguments: { date: "2026-07-21", mood_rating: 5, energy_level: 5 },
+    });
+
+    const result = await client.callTool({
+      name: "update_entry",
+      arguments: { id: seed.id, date: "2026-07-21" },
+    });
+
+    expect(result.isError).toBe(true);
+  });
+
   it("rejects an out-of-range mood_rating", async () => {
     const seed = await createSeedEntry();
 

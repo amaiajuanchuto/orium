@@ -197,6 +197,21 @@ describe("API router", () => {
 
       expect(res.status).toBe(404);
     });
+
+    it("returns 409 when moved onto a date that already has an entry", async () => {
+      const seed = await createSeedEntry();
+      await request(app)
+        .post("/api/v1/entries")
+        .set("Authorization", "Bearer test-token")
+        .send({ date: "2026-07-21", mood_rating: 5, energy_level: 5 });
+
+      const res = await request(app)
+        .patch(`/api/v1/entries/${seed.id}`)
+        .set("Authorization", "Bearer test-token")
+        .send({ date: "2026-07-21" });
+
+      expect(res.status).toBe(409);
+    });
   });
 
   describe("DELETE /entries/:id", () => {

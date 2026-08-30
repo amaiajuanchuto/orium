@@ -4,7 +4,7 @@
 import type postgres from "postgres";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { updateEntry } from "../core/entries.js";
+import { EntryDateConflictError, updateEntry } from "../core/entries.js";
 import { dateSchema } from "../db/validation.js";
 
 const updateEntryInputSchema = {
@@ -39,7 +39,18 @@ export function registerUpdateEntryTool(
       inputSchema: updateEntryInputSchema,
     },
     async ({ id, ...input }) => {
-      const entry = await updateEntry(sql, userId, id, input);
+      let entry;
+      try {
+        entry = await updateEntry(sql, userId, id, input);
+      } catch (err) {
+        if (err instanceof EntryDateConflictError) {
+          return {
+            content: [{ type: "text", text: err.message }],
+            isError: true,
+          };
+        }
+        throw err;
+      }
 
       if (!entry) {
         return {

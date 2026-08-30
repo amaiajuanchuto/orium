@@ -15,6 +15,7 @@ import { z } from "zod";
 import {
   createEntry,
   deleteEntry,
+  EntryDateConflictError,
   getEntryById,
   getTodayEntry,
   listEntries,
@@ -176,7 +177,16 @@ export function createApiRouter(
     const body = parseOr400(updateEntryBodySchema, req.body, res);
     if (!body) return;
 
-    const entry = await updateEntry(sql, req.userId!, params.id, body);
+    let entry;
+    try {
+      entry = await updateEntry(sql, req.userId!, params.id, body);
+    } catch (err) {
+      if (err instanceof EntryDateConflictError) {
+        res.status(409).json({ error: err.message });
+        return;
+      }
+      throw err;
+    }
     if (!entry) {
       res.status(404).json({ error: `No entry found with id ${params.id}.` });
       return;
