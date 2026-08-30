@@ -64,7 +64,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         {streak && (
-          <div className="rounded-xl border border-border-1 bg-surface-2 p-4">
+          <div className="mb-4 rounded-xl border border-border-1 bg-surface-2 p-4">
             <div className="font-heading text-2xl font-bold text-ink">
               {streak.current_streak}{" "}
               <span className="text-sm font-normal text-muted">day streak</span>
@@ -74,6 +74,15 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </p>
           </div>
         )}
+
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noreferrer"
+          className="text-center text-xs text-faint underline"
+        >
+          Privacy policy
+        </a>
       </aside>
     </>
   );
