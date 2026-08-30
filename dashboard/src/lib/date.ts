@@ -1,6 +1,11 @@
-/** Matches the backend's date convention (see src/db/dates.ts): UTC-based. */
+/**
+ * Formats a Date as YYYY-MM-DD using its local calendar day, not UTC — so
+ * "today" matches the day the user is actually experiencing, not whatever
+ * day it already is in UTC. The server has no per-user timezone, so this
+ * is the source of truth for "today" throughout the dashboard.
+ */
 export function toISODate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return formatISOFromParts(date.getFullYear(), date.getMonth() + 1, date.getDate());
 }
 
 /**

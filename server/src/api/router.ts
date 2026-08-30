@@ -70,6 +70,10 @@ const searchQuerySchema = z.object({
   keyword: z.string().min(1).max(200),
 });
 
+const todayQuerySchema = z.object({
+  date: z.string().regex(DATE_REGEX, "date must be in YYYY-MM-DD format").optional(),
+});
+
 const summaryQuerySchema = z.object({
   period: z.enum(["week", "month"]),
 });
@@ -215,7 +219,10 @@ export function createApiRouter(
   });
 
   router.get("/today", async (req, res) => {
-    res.json(await getTodayEntry(sql, req.userId!));
+    const query = parseOr400(todayQuerySchema, req.query, res);
+    if (!query) return;
+
+    res.json(await getTodayEntry(sql, req.userId!, query.date));
   });
 
   router.get("/search", async (req, res) => {

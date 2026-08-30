@@ -156,7 +156,9 @@ describe("create_entry tool", () => {
   });
 
   it("rejects a date in the future", async () => {
-    const futureDate = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    // +2 days: dateSchema tolerates +1 day to cover users ahead of the
+    // server's UTC clock, so this must be further out to be rejected.
+    const futureDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);
 

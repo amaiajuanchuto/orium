@@ -199,7 +199,8 @@ export const api = {
 
   deleteEntry: (id: number) => request<Entry>(`/entries/${id}`, { method: "DELETE" }),
 
-  getToday: () => request<EntryWithTags | null>("/today"),
+  getToday: (date: string) =>
+    request<EntryWithTags | null>(`/today${buildQuery({ date })}`),
 
   search: (keyword: string) =>
     request<EntryWithTags[]>(`/search${buildQuery({ keyword })}`),

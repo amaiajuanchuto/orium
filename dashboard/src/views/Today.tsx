@@ -41,7 +41,7 @@ export function Today() {
 
   useEffect(() => {
     Promise.all([
-      api.getToday().then(setExisting),
+      api.getToday(today).then(setExisting),
       api
         .getSummary("week")
         .then(setSummary)

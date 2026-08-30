@@ -316,18 +316,22 @@ export async function searchEntries(
 }
 
 /**
- * Looks up the journal entry for today's date (based on the system clock),
- * along with its linked tags.
+ * Looks up the journal entry for today's date, along with its linked tags.
  *
  * @param sql - Open database connection.
  * @param userId - The authenticated user's id.
+ * @param clientToday - The caller's own idea of today's date (YYYY-MM-DD),
+ *   e.g. the browser's local date. The server has no per-user timezone, so
+ *   callers that know the user's local date (the dashboard) should pass it;
+ *   callers that don't (the MCP tool) fall back to the server's UTC clock.
  * @returns Today's entry with its tags, or null if none has been logged yet.
  */
 export async function getTodayEntry(
   sql: postgres.Sql,
   userId: string,
+  clientToday?: string,
 ): Promise<EntryWithTags | null> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = clientToday ?? new Date().toISOString().slice(0, 10);
 
   const [entry] = await sql<
     Entry[]

@@ -276,6 +276,20 @@ describe("API router", () => {
       expect(res.status).toBe(200);
       expect(res.body.date).toBe(today);
     });
+
+    it("uses a client-supplied date over the server's clock", async () => {
+      await request(app)
+        .post("/api/v1/entries")
+        .set("Authorization", "Bearer test-token")
+        .send({ date: "2026-07-20", mood_rating: 6, energy_level: 6 });
+
+      const res = await request(app)
+        .get("/api/v1/today?date=2026-07-20")
+        .set("Authorization", "Bearer test-token");
+
+      expect(res.status).toBe(200);
+      expect(res.body.date).toBe("2026-07-20");
+    });
   });
 
   describe("GET /search", () => {
