@@ -190,8 +190,21 @@ export function EntryForm({ date, existing, onSaved }: EntryFormProps) {
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         rows={4}
-        className="mb-6 w-full rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
+        className="w-full rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"
       />
+      <p className="mb-6 mt-2 text-xs text-faint">
+        Orium is a personal journal, not a substitute for professional support. If you're
+        going through a hard time,{" "}
+        <a
+          href="https://findahelpline.com"
+          target="_blank"
+          rel="noreferrer"
+          className="underline"
+        >
+          find a helpline
+        </a>{" "}
+        in your country.
+      </p>
 
       <div className="flex items-center gap-3">
         <button
