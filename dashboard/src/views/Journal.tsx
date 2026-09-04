@@ -5,8 +5,10 @@ import { LoadingScreen } from "../components/LoadingScreen";
 import { EntryForm } from "../components/EntryForm";
 import { EditDeleteButtons } from "../components/EditDeleteButtons";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { useStreak } from "../lib/StreakContext";
 
 export function Journal() {
+  const { refreshStreak } = useStreak();
   const [entries, setEntries] = useState<EntryWithTags[]>([]);
   const [keyword, setKeyword] = useState("");
   const [submittedKeyword, setSubmittedKeyword] = useState("");
@@ -93,6 +95,7 @@ export function Journal() {
                       current.map((e) => (e.id === saved.id ? saved : e)),
                     );
                     setEditingId(null);
+                    refreshStreak();
                   }}
                 />
               ) : (
@@ -143,6 +146,7 @@ export function Journal() {
                           setEntries((current) =>
                             current.filter((e) => e.id !== entry.id),
                           );
+                          refreshStreak();
                         }}
                       />
                     </div>

@@ -5,6 +5,7 @@ import { LoadingScreen } from "../components/LoadingScreen";
 import { EntryForm } from "../components/EntryForm";
 import { EditDeleteButtons } from "../components/EditDeleteButtons";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { useStreak } from "../lib/StreakContext";
 import {
   addMonths,
   daysInMonth,
@@ -17,6 +18,7 @@ import {
 } from "../lib/date";
 
 export function Calendar() {
+  const { refreshStreak } = useStreak();
   const [monthDate, setMonthDate] = useState(() => startOfMonth(new Date()));
   const [entries, setEntries] = useState<Record<string, EntryWithTags>>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -163,6 +165,7 @@ export function Calendar() {
                 onSaved={(entry) => {
                   setEntries((current) => ({ ...current, [entry.date]: entry }));
                   setEditing(false);
+                  refreshStreak();
                 }}
               />
             ) : (
@@ -217,6 +220,7 @@ export function Calendar() {
                         delete next[selectedDate];
                         return next;
                       });
+                      refreshStreak();
                     }}
                   />
                 </div>
