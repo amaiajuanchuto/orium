@@ -284,12 +284,13 @@ function escapeLikePattern(value: string): string {
 const SEARCH_MAX_RESULTS = 50;
 
 /**
- * Case-insensitive search for `keyword` across entry notes, returning
- * matches (with their tags) ordered by date descending, capped at 50 results.
+ * Case-insensitive search for `keyword` across entry notes and tag names,
+ * returning matches (with their tags) ordered by date descending, capped at
+ * 50 results.
  *
  * @param sql - Open database connection.
  * @param userId - The authenticated user's id.
- * @param keyword - Substring to search for within notes.
+ * @param keyword - Substring to search for within notes or tag names.
  * @returns Matching entries, most recent first.
  */
 export async function searchEntries(
@@ -300,10 +301,15 @@ export async function searchEntries(
   const pattern = `%${escapeLikePattern(keyword)}%`;
 
   const entries = await sql<Entry[]>`
-    SELECT * FROM entries
-    WHERE user_id = ${userId}
-      AND notes IS NOT NULL AND LOWER(notes) LIKE LOWER(${pattern}) ESCAPE '\\'
-    ORDER BY date DESC, id DESC
+    SELECT DISTINCT e.* FROM entries e
+    LEFT JOIN entry_tags et ON et.entry_id = e.id
+    LEFT JOIN tags t ON t.id = et.tag_id
+    WHERE e.user_id = ${userId}
+      AND (
+        (e.notes IS NOT NULL AND LOWER(e.notes) LIKE LOWER(${pattern}) ESCAPE '\\')
+        OR LOWER(t.name) LIKE LOWER(${pattern}) ESCAPE '\\'
+      )
+    ORDER BY e.date DESC, e.id DESC
     LIMIT ${SEARCH_MAX_RESULTS}
   `;
 

@@ -53,7 +53,7 @@ export function Journal() {
       >
         <input
           type="search"
-          placeholder="Search notes…"
+          placeholder="Search notes or tags…"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           className="w-full max-w-sm rounded-lg border border-border-2 bg-field px-3 py-2 text-ink outline-none focus:border-accent"

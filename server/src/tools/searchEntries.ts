@@ -1,5 +1,5 @@
 /**
- * `search_entries` MCP tool: keyword search across entry notes.
+ * `search_entries` MCP tool: keyword search across entry notes and tags.
  */
 import type postgres from "postgres";
 import { z } from "zod";
@@ -12,8 +12,8 @@ const searchEntriesInputSchema = {
 
 /**
  * Registers the `search_entries` tool, which performs a case-insensitive
- * search for `keyword` across entry notes, returning matches (with their
- * tags) ordered by date descending, capped at 50 results.
+ * search for `keyword` across entry notes and tag names, returning matches
+ * (with their tags) ordered by date descending, capped at 50 results.
  */
 export function registerSearchEntriesTool(
   server: McpServer,
@@ -24,7 +24,8 @@ export function registerSearchEntriesTool(
     "search_entries",
     {
       title: "Search journal entries",
-      description: "Search journal entry notes for a keyword (case-insensitive).",
+      description:
+        "Search journal entry notes and tags for a keyword (case-insensitive).",
       inputSchema: searchEntriesInputSchema,
     },
     async ({ keyword }) => {

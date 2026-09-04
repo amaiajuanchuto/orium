@@ -85,6 +85,38 @@ describe("search_entries tool", () => {
     });
   });
 
+  it("matches an entry by its tag name, even when the keyword isn't in the notes", async () => {
+    const result = await client.callTool({
+      name: "search_entries",
+      arguments: { keyword: "work" },
+    });
+    const body = JSON.parse(textOf(result));
+
+    expect(body.count).toBe(1);
+    expect(body.entries[0]).toMatchObject({ date: "2026-07-20", tags: ["work"] });
+  });
+
+  it("doesn't double-count an entry that matches both its notes and a tag", async () => {
+    await client.callTool({
+      name: "create_entry",
+      arguments: {
+        date: "2026-07-24",
+        mood_rating: 7,
+        energy_level: 7,
+        notes: "feeling calm today",
+        tags: ["calm"],
+      },
+    });
+
+    const result = await client.callTool({
+      name: "search_entries",
+      arguments: { keyword: "calm" },
+    });
+    const body = JSON.parse(textOf(result));
+
+    expect(body.count).toBe(1);
+  });
+
   it("orders matches by date descending", async () => {
     await client.callTool({
       name: "create_entry",
