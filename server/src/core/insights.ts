@@ -18,13 +18,32 @@ const SUMMARY_PERIOD_DAYS = { week: 7, month: 30 } as const;
 const TRENDS_PERIOD_DAYS = { week: 7, month: 30, quarter: 90 } as const;
 const STREAK_NUDGE_THRESHOLD = 7;
 const TAG_IMPACT_NUDGE_THRESHOLD = 0.5;
-const PATTERN_MIN_SAMPLE_SIZE = 5;
+// 5 entries per group was enough to clear the significance test below, but
+// a t-test on that few points is still fragile — one outlier can flip the
+// result. 10 is a firmer floor without making patterns take forever to
+// appear for a daily-journaling app.
+const PATTERN_MIN_SAMPLE_SIZE = 10;
+// Below this many entries per group, a pattern still gets surfaced (it
+// passed significance) but is framed as an early signal rather than a
+// settled fact — small samples are more prone to reflecting a short-lived
+// coincidence than a real, stable effect.
+const PATTERN_CONFIDENT_SAMPLE_SIZE = 20;
 // A pattern is only surfaced if a Welch's t-test on the two groups being
 // compared rejects the "no real difference" null hypothesis at this level —
 // i.e. there's a <5% chance the observed gap is just sampling noise. This is
 // the conventional significance threshold; it does not claim causation, only
 // that the association is unlikely to be a coincidence in the data itself.
 const PATTERN_SIGNIFICANCE_ALPHA = 0.05;
+
+/** Appended to a pattern's summary when either compared group is still a small sample. */
+const EARLY_SIGNAL_NOTE =
+  " Still an early signal with this few entries — keep logging for a clearer picture.";
+
+/** Wraps a summary with the early-signal caveat if either group is below the confident-sample bar. */
+function withConfidenceNote(summary: string, ...groupCounts: number[]): string {
+  const isEarly = groupCounts.some((count) => count < PATTERN_CONFIDENT_SAMPLE_SIZE);
+  return isEarly ? summary + EARLY_SIGNAL_NOTE : summary;
+}
 
 const SLEEP_BUCKET_LABELS: Record<string, string> = {
   under_6: "under 6 hours",
@@ -623,11 +642,14 @@ async function getSleepPattern(
   return {
     type: "sleep",
     p_value: roundPValue(pValue),
-    summary:
+    summary: withConfidenceNote(
       `When you sleep ${bestLabel}, your average mood is ${bestAvg} ` +
-      `(based on ${best.count} entries), compared to ${worstAvg} when you sleep ` +
-      `${worstLabel} (based on ${worst.count} entries). This difference is ` +
-      `statistically significant (${formatPValue(pValue)}).`,
+        `(based on ${best.count} entries), compared to ${worstAvg} when you sleep ` +
+        `${worstLabel} (based on ${worst.count} entries). This difference is ` +
+        `statistically significant (${formatPValue(pValue)}).`,
+      best.count,
+      worst.count,
+    ),
     effect_size: roundPattern(bestAvg - worstAvg),
     tip: `Try to get ${bestLabel} of sleep when possible — that's when your mood tends to be highest.`,
   };
@@ -678,10 +700,13 @@ async function getDayOfWeekPattern(
   return {
     type: "day_of_week",
     p_value: roundPValue(pValue),
-    summary:
+    summary: withConfidenceNote(
       `Your mood is highest on ${bestDay}s (average ${bestAvg}, ${best.count} entries) ` +
-      `and lowest on ${worstDay}s (average ${worstAvg}, ${worst.count} entries). This ` +
-      `difference is statistically significant (${formatPValue(pValue)}).`,
+        `and lowest on ${worstDay}s (average ${worstAvg}, ${worst.count} entries). This ` +
+        `difference is statistically significant (${formatPValue(pValue)}).`,
+      best.count,
+      worst.count,
+    ),
     effect_size: roundPattern(bestAvg - worstAvg),
     tip:
       `Consider what makes ${bestDay}s better and see if you can bring some of that ` +
@@ -721,7 +746,9 @@ async function getTagPatterns(sql: postgres.Sql, userId: string): Promise<Patter
   // keeps each comparison an honest two independent groups rather than a
   // group vs. a total that includes it.
   for (const row of taggedRows) {
-    const [untagged] = await sql<{ avg_mood: number | null; var_mood: number | null; count: number }[]>`
+    const [untagged] = await sql<
+      { avg_mood: number | null; var_mood: number | null; count: number }[]
+    >`
       SELECT AVG(mood_rating) AS avg_mood, VARIANCE(mood_rating) AS var_mood, COUNT(*)::int AS count
       FROM entries e
       WHERE e.user_id = ${userId}
@@ -754,10 +781,13 @@ async function getTagPatterns(sql: postgres.Sql, userId: string): Promise<Patter
     patterns.push({
       type: "tag",
       p_value: roundPValue(pValue),
-      summary:
+      summary: withConfidenceNote(
         `Days tagged "${row.tag}" average ${withAvg} (${row.count} entries) vs ${withoutAvg} ` +
-        `on days without that tag (${untagged.count} entries, ${sign}${effectSize}). This ` +
-        `difference is statistically significant (${formatPValue(pValue)}).`,
+          `on days without that tag (${untagged.count} entries, ${sign}${effectSize}). This ` +
+          `difference is statistically significant (${formatPValue(pValue)}).`,
+        row.count,
+        untagged.count,
+      ),
       effect_size: effectSize,
       tip,
     });
@@ -768,8 +798,9 @@ async function getTagPatterns(sql: postgres.Sql, userId: string): Promise<Patter
 
 /**
  * Surfaces the strongest correlations between mood and sleep duration, day
- * of week, and tags — each with numbers and a tip. Requires at least 5
- * entries per group, and the two groups being compared must pass a Welch's
+ * of week, and tags — each with numbers and a tip. Requires at least
+ * `PATTERN_MIN_SAMPLE_SIZE` entries per group, and the two groups being
+ * compared must pass a Welch's
  * t-test at `PATTERN_SIGNIFICANCE_ALPHA` (default 5%) — this rules out
  * "patterns" that are just a coincidence of a small sample, though it still
  * only establishes association, not causation.

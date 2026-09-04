@@ -85,10 +85,10 @@ describe("get_patterns tool", () => {
   });
 
   it("detects a sleep pattern", async () => {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       await seedEntry(i, 3, { sleepHours: 5 });
     }
-    for (let i = 10; i < 15; i++) {
+    for (let i = 20; i < 30; i++) {
       await seedEntry(i, 9, { sleepHours: 8 });
     }
 
@@ -104,10 +104,10 @@ describe("get_patterns tool", () => {
   });
 
   it("detects a day-of-week pattern", async () => {
-    for (const offset of [0, 7, 14, 21, 28]) {
+    for (const offset of [0, 7, 14, 21, 28, 35, 42, 49, 56, 63]) {
       await seedEntry(offset, 3);
     }
-    for (const offset of [3, 10, 17, 24, 31]) {
+    for (const offset of [3, 10, 17, 24, 31, 38, 45, 52, 59, 66]) {
       await seedEntry(offset, 9);
     }
 
@@ -120,10 +120,10 @@ describe("get_patterns tool", () => {
   });
 
   it("detects a tag pattern, comparing tagged vs. untagged (not vs. overall)", async () => {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       await seedEntry(i, 9, { tags: ["exercise"] });
     }
-    for (let i = 10; i < 15; i++) {
+    for (let i = 20; i < 30; i++) {
       await seedEntry(i, 3);
     }
 
@@ -139,10 +139,10 @@ describe("get_patterns tool", () => {
   });
 
   it("includes a p_value on every pattern and mentions significance in the summary", async () => {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       await seedEntry(i, 3, { sleepHours: 5 });
     }
-    for (let i = 10; i < 15; i++) {
+    for (let i = 20; i < 30; i++) {
       await seedEntry(i, 9, { sleepHours: 8 });
     }
 
@@ -158,12 +158,12 @@ describe("get_patterns tool", () => {
     // Same mean gap as the passing sleep-pattern test, but with high
     // within-group variance (mood bouncing all over) instead of a clean
     // split — not enough evidence to call it a real effect.
-    const noisyMoods = [1, 10, 1, 10, 1];
-    for (let i = 0; i < 5; i++) {
+    const noisyMoods = [1, 10, 1, 10, 1, 10, 1, 10, 1, 10];
+    for (let i = 0; i < 10; i++) {
       await seedEntry(i, noisyMoods[i]!, { sleepHours: 5 });
     }
-    for (let i = 10; i < 15; i++) {
-      await seedEntry(i, noisyMoods[i - 10]!, { sleepHours: 8 });
+    for (let i = 20; i < 30; i++) {
+      await seedEntry(i, noisyMoods[i - 20]!, { sleepHours: 8 });
     }
 
     const result = await client.callTool({ name: "get_patterns", arguments: {} });
@@ -173,10 +173,10 @@ describe("get_patterns tool", () => {
 
   it("returns only the top 3 patterns ranked by absolute effect size", async () => {
     const groups: Array<[string, number, number, number]> = [
-      ["a", 9, 0, 4],
-      ["b", 8, 5, 9],
-      ["c", 2, 10, 14],
-      ["d", 5, 15, 19],
+      ["a", 9, 0, 9],
+      ["b", 8, 10, 19],
+      ["c", 2, 20, 29],
+      ["d", 5, 30, 39],
     ];
 
     for (const [tag, mood, from, to] of groups) {
@@ -197,13 +197,13 @@ describe("get_patterns tool", () => {
 
   it("never surfaces patterns from another user's entries", async () => {
     const { client: otherClient } = await setup(sql, OTHER_TEST_USER_ID);
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       await otherClient.callTool({
         name: "create_entry",
         arguments: { date: daysAgo(i), mood_rating: 3, energy_level: 3, sleep_hours: 5 },
       });
     }
-    for (let i = 10; i < 15; i++) {
+    for (let i = 20; i < 30; i++) {
       await otherClient.callTool({
         name: "create_entry",
         arguments: { date: daysAgo(i), mood_rating: 9, energy_level: 9, sleep_hours: 8 },
