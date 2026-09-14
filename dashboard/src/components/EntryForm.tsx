@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type EntryWithTags } from "../lib/api";
 import { colorForMood } from "../lib/mood";
+import { TagPicker } from "./TagPicker";
 
 const DOTS = Array.from({ length: 10 }, (_, i) => i + 1);
 
@@ -53,11 +54,6 @@ export function EntryForm({ date, existing, onSaved }: EntryFormProps) {
     );
     setNewTag("");
   }
-
-  // Tags already picked come first, then the rest of the shared vocabulary —
-  // so a tag someone just added or an entry's existing tags are never
-  // hidden below the fold of the scrollable chip cloud.
-  const visibleTags = [...tags, ...allTags.filter((t) => !tags.includes(t))];
 
   async function handleSave(): Promise<void> {
     if (mood === null || energy === null) return;
@@ -138,27 +134,8 @@ export function EntryForm({ date, existing, onSaved }: EntryFormProps) {
       />
 
       <label className="mb-2 block text-sm font-medium text-ink-soft">Tags</label>
-      <div className="mb-3 flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-lg border border-border-1 bg-surface-2 p-3">
-        {visibleTags.length === 0 && (
-          <span className="text-sm text-muted">No tags yet — add one below.</span>
-        )}
-        {visibleTags.map((tag) => {
-          const active = tags.includes(tag);
-          return (
-            <button
-              key={tag}
-              onClick={() => toggleTag(tag)}
-              className="rounded-full border px-3 py-1 text-sm transition"
-              style={{
-                background: active ? "var(--accent)" : "var(--chip)",
-                borderColor: active ? "var(--accent)" : "var(--border-3)",
-                color: active ? "var(--on-accent)" : "var(--chip-ink)",
-              }}
-            >
-              {tag}
-            </button>
-          );
-        })}
+      <div className="mb-3">
+        <TagPicker allTags={allTags} selectedTags={tags} onToggle={toggleTag} />
       </div>
 
       <div className="mb-5 flex gap-2">
