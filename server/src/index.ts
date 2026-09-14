@@ -237,7 +237,14 @@ async function handleSessionRequest(req: Request, res: Response): Promise<void> 
 app.get("/mcp", handleSessionRequest);
 app.delete("/mcp", handleSessionRequest);
 
-app.get("/health", (_req, res) => {
+app.get("/health", async (_req, res) => {
+  try {
+    await sql`SELECT 1`;
+  } catch (err) {
+    console.error("Health check: database unreachable:", err);
+    res.status(503).json({ status: "error", error: "database unreachable" });
+    return;
+  }
   res.status(200).json({ status: "ok" });
 });
 
