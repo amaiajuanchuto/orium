@@ -18,6 +18,7 @@ import {
 import type { OAuthMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { createApiRouter } from "./api/router.js";
 import { createTokenVerifier } from "./auth.js";
+import { logger } from "./logger.js";
 import { createDatabase } from "./db/connection.js";
 import { registerAllTools } from "./registerTools.js";
 
@@ -91,7 +92,7 @@ const reapInterval = setInterval(() => {
     if (now - session.lastActivity > SESSION_IDLE_TTL_MS) {
       // Removes itself from `sessions` via the transport's onclose handler.
       void session.transport.close();
-      console.error(`Reaped idle MCP session ${sessionId}`);
+      logger.info("Reaped idle MCP session", { sessionId, userId: session.userId });
     }
   }
 }, SESSION_REAP_INTERVAL_MS);
@@ -241,7 +242,7 @@ app.get("/health", async (_req, res) => {
   try {
     await sql`SELECT 1`;
   } catch (err) {
-    console.error("Health check: database unreachable:", err);
+    logger.error("Health check: database unreachable", { err });
     res.status(503).json({ status: "error", error: "database unreachable" });
     return;
   }
@@ -277,7 +278,7 @@ app.get(
 );
 
 const httpServer = app.listen(PORT, () => {
-  console.error(`Orium MCP server listening on port ${PORT}`);
+  logger.info("Orium MCP server listening", { port: PORT });
 });
 
 async function shutdown(): Promise<void> {

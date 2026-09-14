@@ -27,6 +27,7 @@ import { getMoodTrends, getPatterns, getStreak, getSummary } from "../core/insig
 import { getProfile, upsertProfile } from "../core/profile.js";
 import { deleteSupabaseUser } from "../auth/admin.js";
 import { listTagNames } from "../db/tags.js";
+import { logger } from "../logger.js";
 import { DATE_REGEX } from "../db/types.js";
 import {
   dateSchema,
@@ -297,7 +298,7 @@ export function createApiRouter(
   // Express 5 forwards rejected promises from the async handlers above to
   // this error handler automatically.
   router.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
-    console.error("API error:", err);
+    logger.error("API error", { err, path: req.path, method: req.method });
     res.status(500).json({ error: "Internal server error" });
   });
 
