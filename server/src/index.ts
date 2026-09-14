@@ -72,10 +72,30 @@ interface McpSession {
    * history); checking real identity here means a leaked session id alone
    * isn't enough to read or write someone else's journal. */
   userId: string;
+  /** `Date.now()` of the last request handled on this session — sessions
+   * that stop hearing from their client (closed tab, dropped connection)
+   * never get an explicit DELETE, so this is how the reaper below finds
+   * them instead of accumulating forever. */
+  lastActivity: number;
 }
 
 /** Active Streamable HTTP sessions, keyed by their MCP session id. */
 const sessions: Record<string, McpSession> = {};
+
+const SESSION_IDLE_TTL_MS = 30 * 60 * 1000;
+const SESSION_REAP_INTERVAL_MS = 5 * 60 * 1000;
+
+const reapInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [sessionId, session] of Object.entries(sessions)) {
+    if (now - session.lastActivity > SESSION_IDLE_TTL_MS) {
+      // Removes itself from `sessions` via the transport's onclose handler.
+      void session.transport.close();
+      console.error(`Reaped idle MCP session ${sessionId}`);
+    }
+  }
+}, SESSION_REAP_INTERVAL_MS);
+reapInterval.unref();
 
 // We're a resource server only — Supabase's OAuth 2.1 Server is the actual
 // authorization server. Rather than hand-typing its endpoints (and risking
@@ -166,6 +186,7 @@ app.post("/mcp", express.json(), async (req, res) => {
       res.status(400).send("Invalid or missing session ID");
       return;
     }
+    sessions[sessionId].lastActivity = Date.now();
     transport = sessions[sessionId].transport;
   } else if (!sessionId && isInitializeRequest(req.body)) {
     // requireAuth always runs first and rejects unauthenticated requests, so
@@ -175,7 +196,7 @@ app.post("/mcp", express.json(), async (req, res) => {
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (newSessionId) => {
-        sessions[newSessionId] = { transport, userId };
+        sessions[newSessionId] = { transport, userId, lastActivity: Date.now() };
       },
     });
 
@@ -209,6 +230,7 @@ async function handleSessionRequest(req: Request, res: Response): Promise<void> 
     return;
   }
 
+  session.lastActivity = Date.now();
   await session.transport.handleRequest(req, res);
 }
 
