@@ -28,6 +28,14 @@ const DIRECTION_ARROW: Record<string, string> = {
   stable: "►",
 };
 
+type Series = "mood" | "energy" | "sleep";
+
+const SERIES_CONFIG: { id: Series; label: string; color: string }[] = [
+  { id: "mood", label: "Mood", color: "var(--accent)" },
+  { id: "energy", label: "Energy", color: "#D9A441" },
+  { id: "sleep", label: "Sleep", color: "#6B8CAE" },
+];
+
 function StatCard({
   label,
   current,
@@ -62,6 +70,18 @@ export function Trends() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [visibleSeries, setVisibleSeries] = useState<Set<Series>>(
+    () => new Set(["mood", "energy", "sleep"]),
+  );
+
+  function toggleSeries(id: Series): void {
+    setVisibleSeries((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -93,6 +113,7 @@ export function Trends() {
     date: e.date.slice(5),
     mood: e.mood_rating,
     energy: e.energy_level,
+    sleep: e.sleep_hours,
   }));
 
   if (loading) return <LoadingScreen />;
@@ -126,12 +147,36 @@ export function Trends() {
         />
       )}
 
+      <div className="mb-3 flex gap-2">
+        {SERIES_CONFIG.map((s) => {
+          const active = visibleSeries.has(s.id);
+          return (
+            <button
+              key={s.id}
+              onClick={() => toggleSeries(s.id)}
+              className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition"
+              style={{
+                background: active ? s.color : "var(--surface)",
+                color: active ? "var(--on-accent)" : "var(--muted)",
+                borderColor: active ? s.color : "var(--border-3)",
+              }}
+            >
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className="mb-6 rounded-2xl border border-border-1 bg-surface p-5">
         {chartData.length === 0 ? (
           <p className="py-12 text-center text-muted">
             {loadError
               ? "Couldn't load the chart data."
               : "No entries logged in this period yet."}
+          </p>
+        ) : visibleSeries.size === 0 ? (
+          <p className="py-12 text-center text-muted">
+            Pick at least one of mood, energy, or sleep above to see the chart.
           </p>
         ) : (
           <ResponsiveContainer width="100%" height={280}>
@@ -144,11 +189,22 @@ export function Trends() {
                 tickLine={false}
               />
               <YAxis
+                yAxisId="rating"
                 domain={[1, 10]}
                 stroke="var(--faint)"
                 fontSize={11}
                 tickLine={false}
               />
+              {visibleSeries.has("sleep") && (
+                <YAxis
+                  yAxisId="sleep"
+                  orientation="right"
+                  domain={[0, "dataMax + 1"]}
+                  stroke="var(--faint)"
+                  fontSize={11}
+                  tickLine={false}
+                />
+              )}
               <Tooltip
                 contentStyle={{
                   background: "var(--surface)",
@@ -157,22 +213,40 @@ export function Trends() {
                 }}
               />
               <Legend />
-              <Line
-                type="monotone"
-                dataKey="mood"
-                name="Mood"
-                stroke="var(--accent)"
-                strokeWidth={3}
-                dot={{ r: 3 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="energy"
-                name="Energy"
-                stroke="#D9A441"
-                strokeWidth={2}
-                dot={{ r: 3 }}
-              />
+              {visibleSeries.has("mood") && (
+                <Line
+                  yAxisId="rating"
+                  type="monotone"
+                  dataKey="mood"
+                  name="Mood"
+                  stroke="var(--accent)"
+                  strokeWidth={3}
+                  dot={{ r: 3 }}
+                />
+              )}
+              {visibleSeries.has("energy") && (
+                <Line
+                  yAxisId="rating"
+                  type="monotone"
+                  dataKey="energy"
+                  name="Energy"
+                  stroke="#D9A441"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+              )}
+              {visibleSeries.has("sleep") && (
+                <Line
+                  yAxisId="sleep"
+                  type="monotone"
+                  dataKey="sleep"
+                  name="Sleep (h)"
+                  stroke="#6B8CAE"
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                  connectNulls
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         )}
