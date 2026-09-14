@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, type StreakResult } from "./api";
 
 interface StreakContextValue {
@@ -18,7 +12,10 @@ export function StreakProvider({ children }: { children: ReactNode }) {
   const [streak, setStreak] = useState<StreakResult | null>(null);
 
   function refreshStreak(): void {
-    api.getStreak().then(setStreak).catch(() => undefined);
+    api
+      .getStreak()
+      .then(setStreak)
+      .catch(() => undefined);
   }
 
   useEffect(refreshStreak, []);

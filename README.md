@@ -165,22 +165,22 @@ Once connected, just talk to Claude naturally; it picks the right tool for you.
 
 Alongside the MCP tools, Orium exposes a REST API at `/api/v1` — the same core logic, used by the [dashboard](#dashboard) and available for building any other UI on top of instead of chatting with Claude. Authenticate the same way as `/mcp`: `Authorization: Bearer <Supabase access token>`.
 
-| Method   | Path                   | Description                                                 |
-| -------- | ---------------------- | ----------------------------------------------------------- |
-| `GET`    | `/entries`             | List entries (same filters as `list_entries`)               |
+| Method   | Path                   | Description                                                        |
+| -------- | ---------------------- | ------------------------------------------------------------------ |
+| `GET`    | `/entries`             | List entries (same filters as `list_entries`)                      |
 | `POST`   | `/entries`             | Create an entry, or replace the existing one for that date — `201` |
-| `GET`    | `/entries/:id`         | Fetch a single entry — `404` if not found                   |
-| `PATCH`  | `/entries/:id`         | Partially update an entry — `404` if not found              |
-| `DELETE` | `/entries/:id`         | Delete an entry — `404` if not found                        |
-| `GET`    | `/today`               | Today's entry, or `null`                                    |
-| `GET`    | `/search?keyword=`     | Keyword search across notes                                 |
-| `GET`    | `/streak`              | Streak report, or `null` with no entries                    |
-| `GET`    | `/summary?period=`     | `week` or `month` — full period review, or `null`           |
-| `GET`    | `/mood-trends?period=` | `week`, `month`, or `quarter` — trend comparison, or `null` |
+| `GET`    | `/entries/:id`         | Fetch a single entry — `404` if not found                          |
+| `PATCH`  | `/entries/:id`         | Partially update an entry — `404` if not found                     |
+| `DELETE` | `/entries/:id`         | Delete an entry — `404` if not found                               |
+| `GET`    | `/today`               | Today's entry, or `null`                                           |
+| `GET`    | `/search?keyword=`     | Keyword search across notes                                        |
+| `GET`    | `/streak`              | Streak report, or `null` with no entries                           |
+| `GET`    | `/summary?period=`     | `week` or `month` — full period review, or `null`                  |
+| `GET`    | `/mood-trends?period=` | `week`, `month`, or `quarter` — trend comparison, or `null`        |
 | `GET`    | `/patterns`            | Statistically significant mood correlations — `[]` if none qualify |
-| `GET`    | `/profile`             | The user's lifestyle profile, or `null` if not set up yet   |
-| `PUT`    | `/profile`             | Create/update the profile — only provided fields change     |
-| `GET`    | `/tags`                | Every tag in the shared vocabulary, alphabetically           |
+| `GET`    | `/profile`             | The user's lifestyle profile, or `null` if not set up yet          |
+| `PUT`    | `/profile`             | Create/update the profile — only provided fields change            |
+| `GET`    | `/tags`                | Every tag in the shared vocabulary, alphabetically                 |
 
 Invalid input returns `400` with `{ error: "Validation failed", issues: [...] }` (zod's issue list). Every query is scoped to the authenticated user, same as the MCP tools.
 
@@ -190,9 +190,9 @@ Patterns are plain descriptive statistics, computed fresh from your own entries 
 
 - **Sleep** — groups entries into 4 buckets (under 6h, 6–7h, 7–8h, 8h+), compares the best vs. worst bucket's average mood.
 - **Day of week** — same idea, grouped by weekday instead.
-- **Tags** — for each tag used 5+ times, compares average mood on days *with* that tag vs. days *without* it.
+- **Tags** — for each tag used 5+ times, compares average mood on days _with_ that tag vs. days _without_ it.
 
-Each comparison only counts once **both** groups have at least 5 entries, and the difference passes a **Welch's two-sample t-test** at `p < 0.05` (`server/src/db/stats.ts`, implemented from first principles — no stats library — and unit-tested against textbook critical t-values). Patterns that don't clear that bar are simply never returned, so what you see has passed an actual significance test, not just a bigger-looking average. This establishes a statistically real *association*, not causation — a t-test can't tell you the tag caused the mood difference, only that the two are unlikely to be unrelated by chance.
+Each comparison only counts once **both** groups have at least 5 entries, and the difference passes a **Welch's two-sample t-test** at `p < 0.05` (`server/src/db/stats.ts`, implemented from first principles — no stats library — and unit-tested against textbook critical t-values). Patterns that don't clear that bar are simply never returned, so what you see has passed an actual significance test, not just a bigger-looking average. This establishes a statistically real _association_, not causation — a t-test can't tell you the tag caused the mood difference, only that the two are unlikely to be unrelated by chance.
 
 ## Database schema
 
@@ -209,15 +209,15 @@ Four tables, defined in [`server/supabase/migrations`](server/supabase/migration
 
 Run from the repo root — these delegate to the `server` (and, for `lint`, `dashboard`) workspace:
 
-| Command                 | Description                                                |
-| ------------------------ | ------------------------------------------------------------ |
-| `npm run dev`           | Run the server directly with `tsx`                          |
-| `npm run build`         | Compile the server and build the dashboard                  |
-| `npm start`             | Run the compiled server (which also serves the dashboard)   |
-| `npm test`              | Run the server's Vitest suite once                          |
-| `npm run lint`          | Lint both the server (ESLint) and dashboard (oxlint)         |
-| `npm run format`        | Format the whole repo with Prettier                         |
-| `npm run format:check`  | Check formatting without writing changes                    |
+| Command                | Description                                               |
+| ---------------------- | --------------------------------------------------------- |
+| `npm run dev`          | Run the server directly with `tsx`                        |
+| `npm run build`        | Compile the server and build the dashboard                |
+| `npm start`            | Run the compiled server (which also serves the dashboard) |
+| `npm test`             | Run the server's Vitest suite once                        |
+| `npm run lint`         | Lint both the server (ESLint) and dashboard (oxlint)      |
+| `npm run format`       | Format the whole repo with Prettier                       |
+| `npm run format:check` | Check formatting without writing changes                  |
 
 For dashboard-only work (dev server with hot reload), `cd dashboard && npm run dev`.
 
