@@ -45,6 +45,7 @@ export const TAG_CATEGORIES: { name: string; tags: string[] }[] = [
     tags: [
       "exercise",
       "running",
+      "cycling",
       "yoga",
       "meditation",
       "reading",
@@ -54,6 +55,8 @@ export const TAG_CATEGORIES: { name: string; tags: string[] }[] = [
       "music",
       "art",
       "writing",
+      "sewing",
+      "knitting",
       "traveling",
       "hiking",
       "self-care",
