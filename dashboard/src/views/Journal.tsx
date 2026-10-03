@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type EntryWithTags } from "../lib/api";
 import { colorForMood } from "../lib/mood";
 import { LoadingScreen } from "../components/LoadingScreen";
@@ -6,6 +6,8 @@ import { EntryForm } from "../components/EntryForm";
 import { EditDeleteButtons } from "../components/EditDeleteButtons";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { useStreak } from "../lib/StreakContext";
+
+const PAGE_SIZE = 30;
 
 export function Journal() {
   const { refreshStreak } = useStreak();
@@ -18,15 +20,26 @@ export function Journal() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
+  // Plain keyword search returns its full (capped) result set in one go —
+  // only the unfiltered listing pages, since it's the one that can genuinely
+  // run to hundreds of entries over time.
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     setLoading(true);
     setLoadError(false);
+    setHasMore(true);
     const request = submittedKeyword
       ? api.search(submittedKeyword)
-      : api.listEntries({ limit: 50 });
+      : api.listEntries({ limit: PAGE_SIZE });
 
     request
-      .then(setEntries)
+      .then((list) => {
+        setEntries(list);
+        if (!submittedKeyword) setHasMore(list.length === PAGE_SIZE);
+      })
       .catch(() => {
         setEntries([]);
         setLoadError(true);
@@ -36,6 +49,31 @@ export function Journal() {
         setInitialLoad(false);
       });
   }, [submittedKeyword, reloadToken]);
+
+  useEffect(() => {
+    if (submittedKeyword || loading || loadError || !hasMore) return;
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setLoadingMore(true);
+          api
+            .listEntries({ limit: PAGE_SIZE, offset: entries.length })
+            .then((more) => {
+              setEntries((current) => [...current, ...more]);
+              setHasMore(more.length === PAGE_SIZE);
+            })
+            .catch(() => setHasMore(false))
+            .finally(() => setLoadingMore(false));
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [submittedKeyword, loading, loadError, hasMore, entries.length]);
 
   if (initialLoad) return <LoadingScreen />;
 
@@ -155,6 +193,12 @@ export function Journal() {
               )}
             </article>
           ))}
+
+          {!submittedKeyword && hasMore && (
+            <div ref={sentinelRef} className="py-4 text-center">
+              {loadingMore && <span className="text-sm text-muted">Loading more…</span>}
+            </div>
+          )}
         </div>
       )}
     </div>

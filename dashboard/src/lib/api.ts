@@ -36,6 +36,7 @@ export interface ListEntriesFilters {
   min_energy_level?: number;
   max_energy_level?: number;
   limit?: number;
+  offset?: number;
 }
 
 export interface StreakResult {

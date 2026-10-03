@@ -143,6 +143,30 @@ describe("API router", () => {
 
       expect(res.status).toBe(400);
     });
+
+    it("pages through results with limit and offset", async () => {
+      for (const date of ["2026-07-18", "2026-07-19", "2026-07-20"]) {
+        await request(app)
+          .post("/api/v1/entries")
+          .set("Authorization", "Bearer test-token")
+          .send({ date, mood_rating: 5, energy_level: 5 });
+      }
+
+      const page1 = await request(app)
+        .get("/api/v1/entries")
+        .query({ limit: 2, offset: 0 })
+        .set("Authorization", "Bearer test-token");
+      const page2 = await request(app)
+        .get("/api/v1/entries")
+        .query({ limit: 2, offset: 2 })
+        .set("Authorization", "Bearer test-token");
+
+      expect(page1.body.map((e: { date: string }) => e.date)).toEqual([
+        "2026-07-20",
+        "2026-07-19",
+      ]);
+      expect(page2.body.map((e: { date: string }) => e.date)).toEqual(["2026-07-18"]);
+    });
   });
 
   describe("GET /entries/:id", () => {

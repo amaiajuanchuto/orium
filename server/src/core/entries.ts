@@ -37,6 +37,8 @@ export interface ListEntriesFilters {
   min_energy_level?: number;
   max_energy_level?: number;
   limit?: number;
+  /** Number of matching entries to skip, for paging through results beyond `limit`. */
+  offset?: number;
 }
 
 /**
@@ -241,6 +243,7 @@ export async function listEntries(
     min_energy_level,
     max_energy_level,
     limit,
+    offset,
   } = filters;
 
   const entries = await sql<Entry[]>`
@@ -262,6 +265,7 @@ export async function listEntries(
       )
     ORDER BY e.date DESC, e.id DESC
     LIMIT ${limit ?? 20}
+    OFFSET ${offset ?? 0}
   `;
 
   return Promise.all(
