@@ -7,7 +7,7 @@ import { EditDeleteButtons } from "../components/EditDeleteButtons";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { useStreak } from "../lib/StreakContext";
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 10;
 
 export function Journal() {
   const { refreshStreak } = useStreak();
