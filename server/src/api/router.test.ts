@@ -346,6 +346,30 @@ describe("API router", () => {
         .set("Authorization", "Bearer test-token");
       expect(missingKeyword.status).toBe(400);
     });
+
+    it("pages through matches with limit and offset", async () => {
+      for (const date of ["2026-07-18", "2026-07-19", "2026-07-20"]) {
+        await request(app)
+          .post("/api/v1/entries")
+          .set("Authorization", "Bearer test-token")
+          .send({ date, mood_rating: 5, energy_level: 5, notes: "meeting notes" });
+      }
+
+      const page1 = await request(app)
+        .get("/api/v1/search")
+        .query({ keyword: "meeting", limit: 2, offset: 0 })
+        .set("Authorization", "Bearer test-token");
+      const page2 = await request(app)
+        .get("/api/v1/search")
+        .query({ keyword: "meeting", limit: 2, offset: 2 })
+        .set("Authorization", "Bearer test-token");
+
+      expect(page1.body.map((e: { date: string }) => e.date)).toEqual([
+        "2026-07-20",
+        "2026-07-19",
+      ]);
+      expect(page2.body.map((e: { date: string }) => e.date)).toEqual(["2026-07-18"]);
+    });
   });
 
   describe("GET /streak", () => {

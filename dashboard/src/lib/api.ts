@@ -209,8 +209,8 @@ export const api = {
   getToday: (date: string) =>
     request<EntryWithTags | null>(`/today${buildQuery({ date })}`),
 
-  search: (keyword: string) =>
-    request<EntryWithTags[]>(`/search${buildQuery({ keyword })}`),
+  search: (keyword: string, options: { limit?: number; offset?: number } = {}) =>
+    request<EntryWithTags[]>(`/search${buildQuery({ keyword, ...options })}`),
 
   getStreak: () => request<StreakResult | null>("/streak"),
 

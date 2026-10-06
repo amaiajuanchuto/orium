@@ -72,6 +72,8 @@ const listEntriesQuerySchema = z.object({
 
 const searchQuerySchema = z.object({
   keyword: z.string().min(1).max(200),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
 });
 
 const todayQuerySchema = z.object({
@@ -238,7 +240,12 @@ export function createApiRouter(
     const query = parseOr400(searchQuerySchema, req.query, res);
     if (!query) return;
 
-    res.json(await searchEntries(sql, req.userId!, query.keyword));
+    res.json(
+      await searchEntries(sql, req.userId!, query.keyword, {
+        limit: query.limit,
+        offset: query.offset,
+      }),
+    );
   });
 
   router.get("/streak", async (req, res) => {

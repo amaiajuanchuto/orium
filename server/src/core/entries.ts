@@ -285,23 +285,33 @@ function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
+/** Default (and MCP tool) page size — unchanged from the old fixed cap. */
 const SEARCH_MAX_RESULTS = 50;
+
+export interface SearchEntriesOptions {
+  /** Max results to return. Defaults to 50 (the old fixed cap), for callers — like the MCP tool — that don't paginate. */
+  limit?: number;
+  /** Number of matching entries to skip, for paging through results beyond `limit`. */
+  offset?: number;
+}
 
 /**
  * Case-insensitive search for `keyword` across entry notes and tag names,
- * returning matches (with their tags) ordered by date descending, capped at
- * 50 results.
+ * returning matches (with their tags) ordered by date descending.
  *
  * @param sql - Open database connection.
  * @param userId - The authenticated user's id.
  * @param keyword - Substring to search for within notes or tag names.
+ * @param options - Optional paging; defaults to the first 50 matches.
  * @returns Matching entries, most recent first.
  */
 export async function searchEntries(
   sql: postgres.Sql,
   userId: string,
   keyword: string,
+  options: SearchEntriesOptions = {},
 ): Promise<EntryWithTags[]> {
+  const { limit = SEARCH_MAX_RESULTS, offset = 0 } = options;
   const pattern = `%${escapeLikePattern(keyword)}%`;
 
   const entries = await sql<Entry[]>`
@@ -314,7 +324,8 @@ export async function searchEntries(
         OR LOWER(t.name) LIKE LOWER(${pattern}) ESCAPE '\\'
       )
     ORDER BY e.date DESC, e.id DESC
-    LIMIT ${SEARCH_MAX_RESULTS}
+    LIMIT ${limit}
+    OFFSET ${offset}
   `;
 
   return Promise.all(

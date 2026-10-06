@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type EntryWithTags } from "../lib/api";
 import { colorForMood } from "../lib/mood";
 import { LoadingScreen } from "../components/LoadingScreen";
@@ -20,25 +20,31 @@ export function Journal() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
-  // Plain keyword search returns its full (capped) result set in one go —
-  // only the unfiltered listing pages, since it's the one that can genuinely
-  // run to hundreds of entries over time.
+  // Both the unfiltered listing and keyword search page the same way —
+  // PAGE_SIZE entries per request, loading more as the sentinel scrolls
+  // into view — so search stays consistent with the default listing
+  // instead of dumping its full (capped) result set in one request.
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const fetchPage = useCallback(
+    (offset: number): Promise<EntryWithTags[]> =>
+      submittedKeyword
+        ? api.search(submittedKeyword, { limit: PAGE_SIZE, offset })
+        : api.listEntries({ limit: PAGE_SIZE, offset }),
+    [submittedKeyword],
+  );
 
   useEffect(() => {
     setLoading(true);
     setLoadError(false);
     setHasMore(true);
-    const request = submittedKeyword
-      ? api.search(submittedKeyword)
-      : api.listEntries({ limit: PAGE_SIZE });
 
-    request
+    fetchPage(0)
       .then((list) => {
         setEntries(list);
-        if (!submittedKeyword) setHasMore(list.length === PAGE_SIZE);
+        setHasMore(list.length === PAGE_SIZE);
       })
       .catch(() => {
         setEntries([]);
@@ -48,10 +54,10 @@ export function Journal() {
         setLoading(false);
         setInitialLoad(false);
       });
-  }, [submittedKeyword, reloadToken]);
+  }, [fetchPage, reloadToken]);
 
   useEffect(() => {
-    if (submittedKeyword || loading || loadError || !hasMore) return;
+    if (loading || loadError || !hasMore) return;
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
 
@@ -59,8 +65,7 @@ export function Journal() {
       ([entry]) => {
         if (entry?.isIntersecting) {
           setLoadingMore(true);
-          api
-            .listEntries({ limit: PAGE_SIZE, offset: entries.length })
+          fetchPage(entries.length)
             .then((more) => {
               setEntries((current) => [...current, ...more]);
               setHasMore(more.length === PAGE_SIZE);
@@ -73,7 +78,7 @@ export function Journal() {
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [submittedKeyword, loading, loadError, hasMore, entries.length]);
+  }, [fetchPage, loading, loadError, hasMore, entries.length]);
 
   if (initialLoad) return <LoadingScreen />;
 
@@ -194,7 +199,7 @@ export function Journal() {
             </article>
           ))}
 
-          {!submittedKeyword && hasMore && (
+          {hasMore && (
             <div ref={sentinelRef} className="py-4 text-center">
               {loadingMore && <span className="text-sm text-muted">Loading more…</span>}
             </div>
